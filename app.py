@@ -101,29 +101,29 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Clases de enfermedades
-DISEASE_CLASSES = [
+CLASES_ENFERMEDADES = [
     'Bacterial_spot', 'Early_blight', 'Late_blight', 'Leaf_Mold',
     'Septoria_leaf_spot', 'Spider_mites', 'Target_Spot',
     'Tomato_Yellow_Leaf_Curl_Virus', 'Tomato_mosaic_virus', 'healthy'
 ]
 
 # Información sobre las enfermedades
-DISEASE_INFO = {
-    'Bacterial_spot': {'es': 'Mancha Bacteriana', 'severity': 'Alta', 'color': '#FF6B6B'},
-    'Early_blight': {'es': 'Tizón Temprano', 'severity': 'Media', 'color': '#FFA726'},
-    'Late_blight': {'es': 'Tizón Tardío', 'severity': 'Alta', 'color': '#FF5252'},
-    'Leaf_Mold': {'es': 'Moho de Hoja', 'severity': 'Media', 'color': '#FFB74D'},
-    'Septoria_leaf_spot': {'es': 'Mancha de Septoria', 'severity': 'Media', 'color': '#FF8A65'},
-    'Spider_mites': {'es': 'Ácaros Araña', 'severity': 'Baja', 'color': '#FFCC80'},
-    'Target_Spot': {'es': 'Mancha Diana', 'severity': 'Media', 'color': '#FF7043'},
-    'Tomato_Yellow_Leaf_Curl_Virus': {'es': 'Virus del Rizado Amarillo', 'severity': 'Alta', 'color': '#FF5722'},
-    'Tomato_mosaic_virus': {'es': 'Virus del Mosaico', 'severity': 'Alta', 'color': '#E64A19'},
-    'healthy': {'es': 'Saludable', 'severity': 'Ninguna', 'color': '#4CAF50'}
+INFO_ENFERMEDADES = {
+    'Bacterial_spot': {'es': 'Mancha Bacteriana', 'severidad': 'Alta', 'color': '#FF6B6B'},
+    'Early_blight': {'es': 'Tizón Temprano', 'severidad': 'Media', 'color': '#FFA726'},
+    'Late_blight': {'es': 'Tizón Tardío', 'severidad': 'Alta', 'color': '#FF5252'},
+    'Leaf_Mold': {'es': 'Moho de Hoja', 'severidad': 'Media', 'color': '#FFB74D'},
+    'Septoria_leaf_spot': {'es': 'Mancha de Septoria', 'severidad': 'Media', 'color': '#FF8A65'},
+    'Spider_mites': {'es': 'Ácaros Araña', 'severidad': 'Baja', 'color': '#FFCC80'},
+    'Target_Spot': {'es': 'Mancha Diana', 'severidad': 'Media', 'color': '#FF7043'},
+    'Tomato_Yellow_Leaf_Curl_Virus': {'es': 'Virus del Rizado Amarillo', 'severidad': 'Alta', 'color': '#FF5722'},
+    'Tomato_mosaic_virus': {'es': 'Virus del Mosaico', 'severidad': 'Alta', 'color': '#E64A19'},
+    'healthy': {'es': 'Saludable', 'severidad': 'Ninguna', 'color': '#4CAF50'}
 }
 
 # Mapa de nombres de carpetas a nombres de clases internas
 # Esto es crucial para que coincida el nombre de la carpeta con la clase
-FOLDER_TO_CLASS_MAP = {
+MAPA_CARPETA_A_CLASE = {
     'Tomato___Bacterial_spot': 'Bacterial_spot',
     'Tomato___Early_blight': 'Early_blight',
     'Tomato___Late_blight': 'Late_blight',
@@ -137,230 +137,230 @@ FOLDER_TO_CLASS_MAP = {
 }
 
 @st.cache_resource
-def load_models():
+def cargar_modelos():
     """Carga los tres modelos entrenados"""
-    models_dict = {}
+    diccionario_modelos = {}
     
     # 1. MobileNetV3
     try:
         mobilenet = models.mobilenet_v3_large()
-        mobilenet.classifier[3] = nn.Linear(mobilenet.classifier[3].in_features, len(DISEASE_CLASSES))
+        mobilenet.classifier[3] = nn.Linear(mobilenet.classifier[3].in_features, len(CLASES_ENFERMEDADES))
         
         # Cargar pesos - manejo de DataParallel
-        state_dict = torch.load('models/best_model.pth', map_location='cpu')
+        diccionario_estado = torch.load('models/best_model.pth', map_location='cpu')
         # Remover el prefijo 'module.' si existe
-        new_state_dict = {}
-        for k, v in state_dict.items():
+        nuevo_diccionario_estado = {}
+        for k, v in diccionario_estado.items():
             if k.startswith('module.'):
-                new_state_dict[k[7:]] = v
+                nuevo_diccionario_estado[k[7:]] = v
             else:
-                new_state_dict[k] = v
+                nuevo_diccionario_estado[k] = v
         
-        mobilenet.load_state_dict(new_state_dict)
+        mobilenet.load_state_dict(nuevo_diccionario_estado)
         mobilenet.eval()
-        models_dict['MobileNetV3'] = mobilenet
+        diccionario_modelos['MobileNetV3'] = mobilenet
     except Exception as e:
         st.error(f"Error cargando MobileNetV3: {str(e)}")
     
     # 2. EfficientNetB7
     try:
         efficientnet = models.efficientnet_b7()
-        efficientnet.classifier = nn.Linear(2560, len(DISEASE_CLASSES))
+        efficientnet.classifier = nn.Linear(2560, len(CLASES_ENFERMEDADES))
         efficientnet.load_state_dict(torch.load('models/plant_disease_model.pth', map_location='cpu'))
         efficientnet.eval()
-        models_dict['EfficientNetB7'] = efficientnet
+        diccionario_modelos['EfficientNetB7'] = efficientnet
     except Exception as e:
         st.error(f"Error cargando EfficientNetB7: {str(e)}")
     
     # 3. SVM con ResNet50
     try:
-        svm_data = joblib.load('models/svm_tomato.pkl')
+        datos_svm = joblib.load('models/svm_tomato.pkl')
         # Cargar ResNet50 para extracción de características
         resnet = models.resnet50(weights='IMAGENET1K_V2')
         resnet.fc = nn.Identity()
         resnet.eval()
-        models_dict['SVM'] = {'svm': svm_data['svm'], 'feature_extractor': resnet}
+        diccionario_modelos['SVM'] = {'svm': datos_svm['svm'], 'feature_extractor': resnet}
     except Exception as e:
         st.error(f"Error cargando SVM: {str(e)}")
     
-    return models_dict
+    return diccionario_modelos
 
-def preprocess_image(image, model_name):
+def preprocesar_imagen(imagen, nombre_modelo):
     """Preprocesa la imagen según el modelo"""
-    if model_name == 'MobileNetV3':
-        transform = transforms.Compose([
+    if nombre_modelo == 'MobileNetV3':
+        transformacion = transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
-    elif model_name == 'EfficientNetB7':
-        transform = transforms.Compose([
+    elif nombre_modelo == 'EfficientNetB7':
+        transformacion = transforms.Compose([
             transforms.Resize((128, 128)),
             transforms.ToTensor(),
             transforms.Lambda(lambda x: x / 255.0)
         ])
     else:  # SVM
-        transform = transforms.Compose([
+        transformacion = transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
     
-    return transform(image).unsqueeze(0)
+    return transformacion(imagen).unsqueeze(0)
 
-def predict_with_model(image, model, model_name):
+def predecir_con_modelo(imagen, modelo, nombre_modelo):
     """Realiza predicción con un modelo específico"""
-    start_time = time.time()
+    tiempo_inicio = time.time()
     
     with torch.no_grad():
-        if model_name == 'SVM':
+        if nombre_modelo == 'SVM':
             # Extraer características con ResNet50
-            img_tensor = preprocess_image(image, 'SVM')
-            features = model['feature_extractor'](img_tensor).numpy()
+            tensor_imagen = preprocesar_imagen(imagen, 'SVM')
+            caracteristicas = modelo['feature_extractor'](tensor_imagen).numpy()
             # Predicción con SVM
-            prediction = model['svm'].predict(features)[0]
-            probabilities = model['svm'].predict_proba(features)[0]
+            prediccion = modelo['svm'].predict(caracteristicas)[0]
+            probabilidades = modelo['svm'].predict_proba(caracteristicas)[0]
         else:
             # Predicción con redes neuronales
-            img_tensor = preprocess_image(image, model_name)
-            outputs = model(img_tensor)
-            probabilities = torch.nn.functional.softmax(outputs, dim=1)
-            prediction = torch.argmax(probabilities, dim=1).item()
-            probabilities = probabilities.numpy()[0]
+            tensor_imagen = preprocesar_imagen(imagen, nombre_modelo)
+            salidas = modelo(tensor_imagen)
+            probabilidades = torch.nn.functional.softmax(salidas, dim=1)
+            prediccion = torch.argmax(probabilidades, dim=1).item()
+            probabilidades = probabilidades.numpy()[0]
     
-    inference_time = time.time() - start_time
+    tiempo_inferencia = time.time() - tiempo_inicio
     
     return {
-        'prediction': DISEASE_CLASSES[prediction],
-        'probabilities': probabilities,
-        'confidence': float(probabilities[prediction]),
-        'inference_time': inference_time
+        'prediccion': CLASES_ENFERMEDADES[prediccion],
+        'probabilidades': probabilidades,
+        'confianza': float(probabilidades[prediccion]),
+        'tiempo_inferencia': tiempo_inferencia
     }
 
-# --- NUEVA FUNCIÓN PARA EVALUACIÓN REAL ---
-def perform_real_evaluation(uploaded_files_by_class, models_dict):
+# --- FUNCIÓN PARA EVALUACIÓN REAL ---
+def realizar_evaluacion_real(archivos_cargados_por_clase, diccionario_modelos):
     """Evalúa los modelos en un conjunto de imágenes cargadas."""
-    true_labels = []
-    predictions = {model_name: [] for model_name in models_dict.keys()}
+    etiquetas_reales = []
+    predicciones = {nombre_modelo: [] for nombre_modelo in diccionario_modelos.keys()}
     
-    total_images = sum(len(files) for files in uploaded_files_by_class.values())
-    if total_images == 0:
+    total_imagenes = sum(len(archivos) for archivos in archivos_cargados_por_clase.values())
+    if total_imagenes == 0:
         st.warning("No se han cargado imágenes para la evaluación.")
         return None
 
-    progress_bar = st.progress(0, text="Iniciando evaluación...")
-    processed_images = 0
+    barra_progreso = st.progress(0, text="Iniciando evaluación...")
+    imagenes_procesadas = 0
 
-    for class_name, uploaded_files in uploaded_files_by_class.items():
-        if not uploaded_files:
+    for nombre_clase, archivos_cargados in archivos_cargados_por_clase.items():
+        if not archivos_cargados:
             continue
-        for uploaded_file in uploaded_files:
-            true_labels.append(class_name)
-            image = Image.open(uploaded_file).convert('RGB')
+        for archivo_cargado in archivos_cargados:
+            etiquetas_reales.append(nombre_clase)
+            imagen = Image.open(archivo_cargado).convert('RGB')
             
-            for model_name, model in models_dict.items():
-                result = predict_with_model(image, model, model_name)
-                predictions[model_name].append(result['prediction'])
+            for nombre_modelo, modelo in diccionario_modelos.items():
+                resultado = predecir_con_modelo(imagen, modelo, nombre_modelo)
+                predicciones[nombre_modelo].append(resultado['prediccion'])
 
-            processed_images += 1
-            progress_bar.progress(processed_images / total_images, text=f"Procesando imagen {processed_images}/{total_images}...")
+            imagenes_procesadas += 1
+            barra_progreso.progress(imagenes_procesadas / total_imagenes, text=f"Procesando imagen {imagenes_procesadas}/{total_imagenes}...")
 
-    progress_bar.empty()
+    barra_progreso.empty()
     
     # Calcular métricas
-    results = {}
-    model_names = list(models_dict.keys())
+    resultados = {}
+    nombres_modelos = list(diccionario_modelos.keys())
 
-    for model_name in model_names:
-        preds = predictions[model_name]
-        acc = accuracy_score(true_labels, preds)
-        mcc = matthews_corrcoef(true_labels, preds)
-        cm = confusion_matrix(true_labels, preds, labels=DISEASE_CLASSES)
-        results[model_name] = {'accuracy': acc, 'mcc': mcc, 'confusion_matrix': cm}
+    for nombre_modelo in nombres_modelos:
+        preds = predicciones[nombre_modelo]
+        precision = accuracy_score(etiquetas_reales, preds)
+        mcc = matthews_corrcoef(etiquetas_reales, preds)
+        mc = confusion_matrix(etiquetas_reales, preds, labels=CLASES_ENFERMEDADES)
+        resultados[nombre_modelo] = {'precision': precision, 'mcc': mcc, 'matriz_confusion': mc}
 
-    # McNemar's Test
-    mcnemar_results = {}
-    for i in range(len(model_names)):
-        for j in range(i + 1, len(model_names)):
-            model1, model2 = model_names[i], model_names[j]
-            preds1, preds2 = np.array(predictions[model1]), np.array(predictions[model2])
+    # Prueba de McNemar
+    resultados_mcnemar = {}
+    for i in range(len(nombres_modelos)):
+        for j in range(i + 1, len(nombres_modelos)):
+            modelo1, modelo2 = nombres_modelos[i], nombres_modelos[j]
+            preds1, preds2 = np.array(predicciones[modelo1]), np.array(predicciones[modelo2])
             
-            mis1 = (preds1 != np.array(true_labels))
-            mis2 = (preds2 != np.array(true_labels))
+            errores1 = (preds1 != np.array(etiquetas_reales))
+            errores2 = (preds2 != np.array(etiquetas_reales))
 
-            n01 = np.sum(~mis1 & mis2) # model1 acertó, model2 falló
-            n10 = np.sum(mis1 & ~mis2) # model1 falló, model2 acertó
+            n01 = np.sum(~errores1 & errores2) # modelo1 acertó, modelo2 falló
+            n10 = np.sum(errores1 & ~errores2) # modelo1 falló, modelo2 acertó
 
-            numerator = (np.abs(n10 - n01) - 1)**2
-            denominator = n10 + n01
+            numerador = (np.abs(n10 - n01) - 1)**2
+            denominador = n10 + n01
             
-            chi2_stat = numerator / denominator if denominator > 0 else 0.0
-            p_value = stats.chi2.sf(chi2_stat, 1) if denominator > 0 else 1.0
+            estadistico_chi2 = numerador / denominador if denominador > 0 else 0.0
+            valor_p = stats.chi2.sf(estadistico_chi2, 1) if denominador > 0 else 1.0
 
-            mcnemar_results[f'{model1} vs {model2}'] = {'chi2': chi2_stat, 'p_value': p_value}
+            resultados_mcnemar[f'{modelo1} vs {modelo2}'] = {'chi2': estadistico_chi2, 'valor_p': valor_p}
             
-    results['mcnemar_tests'] = mcnemar_results
-    results['true_labels'] = true_labels
-    results['predictions'] = predictions
-    return results
+    resultados['pruebas_mcnemar'] = resultados_mcnemar
+    resultados['etiquetas_reales'] = etiquetas_reales
+    resultados['predicciones'] = predicciones
+    return resultados
 
-# --- NUEVA FUNCIÓN PARA PDF DE EVALUACIÓN ---
-def generate_evaluation_pdf_report(eval_results):
+# --- FUNCIÓN PARA PDF DE EVALUACIÓN ---
+def generar_reporte_pdf_evaluacion(resultados_evaluacion):
     """Genera un PDF con los resultados de la evaluación por lotes."""
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
-    story = []
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('CustomTitle', parent=styles['Title'], fontSize=20, textColor=colors.HexColor('#2c3e50'), spaceAfter=20, alignment=TA_CENTER)
+    documento = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    elementos_pdf = []
+    estilos = getSampleStyleSheet()
+    estilo_titulo = ParagraphStyle('CustomTitle', parent=estilos['Title'], fontSize=20, textColor=colors.HexColor('#2c3e50'), spaceAfter=20, alignment=TA_CENTER)
     
-    story.append(Paragraph("Reporte de Evaluación de Modelos", title_style))
-    story.append(Paragraph(f"Fecha de evaluación: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", styles['Normal']))
-    story.append(Paragraph(f"Total de imágenes evaluadas: {len(eval_results['true_labels'])}", styles['Normal']))
-    story.append(Spacer(1, 0.3*inch))
+    elementos_pdf.append(Paragraph("Reporte de Evaluación de Modelos", estilo_titulo))
+    elementos_pdf.append(Paragraph(f"Fecha de evaluación: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", estilos['Normal']))
+    elementos_pdf.append(Paragraph(f"Total de imágenes evaluadas: {len(resultados_evaluacion['etiquetas_reales'])}", estilos['Normal']))
+    elementos_pdf.append(Spacer(1, 0.3*inch))
 
     # Tabla de resumen de métricas
-    story.append(Paragraph("<b>Resumen de Rendimiento</b>", styles['Heading2']))
-    metrics_data = [['Modelo', 'Precisión (Accuracy)', 'Coeficiente de Matthews (MCC)']]
-    for model_name, res in eval_results.items():
-        if isinstance(res, dict) and 'accuracy' in res:
-            metrics_data.append([model_name, f"{res['accuracy']:.2%}", f"{res['mcc']:.4f}"])
+    elementos_pdf.append(Paragraph("<b>Resumen de Rendimiento</b>", estilos['Heading2']))
+    datos_metricas = [['Modelo', 'Precisión (Accuracy)', 'Coeficiente de Matthews (MCC)']]
+    for nombre_modelo, res in resultados_evaluacion.items():
+        if isinstance(res, dict) and 'precision' in res:
+            datos_metricas.append([nombre_modelo, f"{res['precision']:.2%}", f"{res['mcc']:.4f}"])
     
-    table = Table(metrics_data, colWidths=[2.5*inch, 2.5*inch, 2.5*inch])
-    table.setStyle(TableStyle([
+    tabla = Table(datos_metricas, colWidths=[2.5*inch, 2.5*inch, 2.5*inch])
+    tabla.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3498db')), ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
         ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('GRID', (0,0), (-1,-1), 1, colors.black), ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.lightgrey])
     ]))
-    story.append(table)
-    story.append(Spacer(1, 0.3*inch))
+    elementos_pdf.append(tabla)
+    elementos_pdf.append(Spacer(1, 0.3*inch))
 
     # Prueba de McNemar
-    story.append(Paragraph("<b>Prueba de McNemar (Comparación de Errores)</b>", styles['Heading2']))
-    mcnemar_data = [['Comparación', 'Estadístico Chi-cuadrado', 'P-Value', 'Significativo (p < 0.05)']]
-    for comp, res in eval_results['mcnemar_tests'].items():
-        mcnemar_data.append([comp, f"{res['chi2']:.4f}", f"{res['p_value']:.4f}", 'Sí' if res['p_value'] < 0.05 else 'No'])
-    table = Table(mcnemar_data)
-    table.setStyle(TableStyle([
+    elementos_pdf.append(Paragraph("<b>Prueba de McNemar (Comparación de Errores)</b>", estilos['Heading2']))
+    datos_mcnemar = [['Comparación', 'Estadístico Chi-cuadrado', 'P-Value', 'Significativo (p < 0.05)']]
+    for comparacion, res in resultados_evaluacion['pruebas_mcnemar'].items():
+        datos_mcnemar.append([comparacion, f"{res['chi2']:.4f}", f"{res['valor_p']:.4f}", 'Sí' if res['valor_p'] < 0.05 else 'No'])
+    tabla = Table(datos_mcnemar)
+    tabla.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#95a5a6')), ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
         ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('GRID', (0,0), (-1,-1), 1, colors.grey), ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.lightgrey])
     ]))
-    story.append(table)
-    story.append(Spacer(1, 0.5*inch))
+    elementos_pdf.append(tabla)
+    elementos_pdf.append(Spacer(1, 0.5*inch))
     
     # Matrices de Confusión
-    story.append(PageBreak())
-    story.append(Paragraph("<b>Matrices de Confusión por Modelo</b>", styles['Heading1']))
-    class_labels = [DISEASE_INFO[c]['es'] for c in DISEASE_CLASSES]
+    elementos_pdf.append(PageBreak())
+    elementos_pdf.append(Paragraph("<b>Matrices de Confusión por Modelo</b>", estilos['Heading1']))
+    etiquetas_clases = [INFO_ENFERMEDADES[c]['es'] for c in CLASES_ENFERMEDADES]
 
-    for model_name, res in eval_results.items():
-        if isinstance(res, dict) and 'confusion_matrix' in res:
-            story.append(Paragraph(f"<b>Modelo: {model_name}</b>", styles['Heading2']))
+    for nombre_modelo, res in resultados_evaluacion.items():
+        if isinstance(res, dict) and 'matriz_confusion' in res:
+            elementos_pdf.append(Paragraph(f"<b>Modelo: {nombre_modelo}</b>", estilos['Heading2']))
             
             fig, ax = plt.subplots(figsize=(10, 8))
-            sns.heatmap(res['confusion_matrix'], annot=True, fmt='d', cmap='Blues',
-                        xticklabels=class_labels, yticklabels=class_labels, ax=ax)
-            ax.set_title(f'Matriz de Confusión - {model_name}', fontsize=14)
+            sns.heatmap(res['matriz_confusion'], annot=True, fmt='d', cmap='Blues',
+                        xticklabels=etiquetas_clases, yticklabels=etiquetas_clases, ax=ax)
+            ax.set_title(f'Matriz de Confusión - {nombre_modelo}', fontsize=14)
             ax.set_xlabel('Predicción')
             ax.set_ylabel('Clase Real')
             plt.xticks(rotation=45, ha='right')
@@ -370,141 +370,141 @@ def generate_evaluation_pdf_report(eval_results):
             buf = BytesIO()
             plt.savefig(buf, format='png', dpi=150)
             buf.seek(0)
-            story.append(RLImage(buf, width=6*inch, height=5*inch))
+            elementos_pdf.append(RLImage(buf, width=6*inch, height=5*inch))
             plt.close()
-            story.append(Spacer(1, 0.3*inch))
+            elementos_pdf.append(Spacer(1, 0.3*inch))
 
-    doc.build(story)
+    documento.build(elementos_pdf)
     buffer.seek(0)
     return buffer
 
-def perform_statistical_tests(predictions):
+def realizar_pruebas_estadisticas(predicciones):
     """Realiza pruebas estadísticas para comparar modelos"""
-    results = {}
-    model_names = list(predictions.keys())
+    resultados = {}
+    nombres_modelos = list(predicciones.keys())
     
     # 1. Test de Friedman para comparar tiempos de inferencia
-    inference_times = [predictions[model]['inference_time'] for model in model_names]
+    tiempos_inferencia = [predicciones[modelo]['tiempo_inferencia'] for modelo in nombres_modelos]
     
     # 2. Coeficiente Kappa de Cohen para acuerdo entre modelos
-    if len(model_names) >= 2:
-        kappa_scores = {}
-        for i in range(len(model_names)):
-            for j in range(i+1, len(model_names)):
-                model1, model2 = model_names[i], model_names[j]
-                pred1 = predictions[model1]['prediction']
-                pred2 = predictions[model2]['prediction']
+    if len(nombres_modelos) >= 2:
+        puntuaciones_kappa = {}
+        for i in range(len(nombres_modelos)):
+            for j in range(i+1, len(nombres_modelos)):
+                modelo1, modelo2 = nombres_modelos[i], nombres_modelos[j]
+                pred1 = predicciones[modelo1]['prediccion']
+                pred2 = predicciones[modelo2]['prediccion']
                 # Para una sola predicción, el kappa será 1 si coinciden, 0 si no
-                kappa_scores[f"{model1} vs {model2}"] = 1.0 if pred1 == pred2 else 0.0
-        results['kappa_scores'] = kappa_scores
+                puntuaciones_kappa[f"{modelo1} vs {modelo2}"] = 1.0 if pred1 == pred2 else 0.0
+        resultados['puntuaciones_kappa'] = puntuaciones_kappa
     
     # 3. Análisis de confianza
-    confidence_scores = {model: predictions[model]['confidence'] for model in model_names}
-    results['confidence_scores'] = confidence_scores
+    puntuaciones_confianza = {modelo: predicciones[modelo]['confianza'] for modelo in nombres_modelos}
+    resultados['puntuaciones_confianza'] = puntuaciones_confianza
     
     # 4. Análisis de consenso
-    all_predictions = {}
-    for model_name, result in predictions.items():
-        probs = result['probabilities']
-        for i, disease in enumerate(DISEASE_CLASSES):
-            if disease not in all_predictions:
-                all_predictions[disease] = []
-            all_predictions[disease].append(probs[i])
+    todas_las_predicciones = {}
+    for nombre_modelo, resultado in predicciones.items():
+        lista_probabilidades = resultado['probabilidades']
+        for i, enfermedad in enumerate(CLASES_ENFERMEDADES):
+            if enfermedad not in todas_las_predicciones:
+                todas_las_predicciones[enfermedad] = []
+            todas_las_predicciones[enfermedad].append(lista_probabilidades[i])
     
-    consensus_probs = {disease: np.mean(probs) for disease, probs in all_predictions.items()}
-    results['consensus'] = max(consensus_probs, key=consensus_probs.get)
-    results['consensus_confidence'] = consensus_probs[results['consensus']]
+    probabilidades_consenso = {enfermedad: np.mean(lista_probabilidades) for enfermedad, lista_probabilidades in todas_las_predicciones.items()}
+    resultados['consenso'] = max(probabilidades_consenso, key=probabilidades_consenso.get)
+    resultados['confianza_consenso'] = probabilidades_consenso[resultados['consenso']]
     
-    return results
+    return resultados
 
-def perform_traditional_statistical_tests(models_accuracy_history=None):
+def realizar_pruebas_estadisticas_tradicionales(historial_precision_modelos=None):
     """
     Realiza pruebas estadísticas tradicionales como t-test y z-test
     Usa datos simulados basados en las precisiones reportadas de los modelos
     """
     # Datos simulados basados en las precisiones reportadas
-    if models_accuracy_history is None:
-        models_accuracy_history = {
+    if historial_precision_modelos is None:
+        historial_precision_modelos = {
             'MobileNetV3': np.random.normal(0.952, 0.01, 10),  # Media 95.2%, std 1%
-            'EfficientNetB7': np.random.normal(0.978, 0.008, 10),  # Media 97.8%, std 0.8%
+            'EfficientNetB7': np.random.normal(0.978, 0.008, 10), # Media 97.8%, std 0.8%
             'SVM + ResNet50': np.random.normal(0.935, 0.012, 10)  # Media 93.5%, std 1.2%
         }
     
-    results = {}
+    resultados = {}
     
     # T-Test pareado entre modelos
-    model_names = list(models_accuracy_history.keys())
-    t_test_results = {}
+    nombres_modelos = list(historial_precision_modelos.keys())
+    resultados_t_test = {}
     
-    for i in range(len(model_names)):
-        for j in range(i+1, len(model_names)):
-            model1, model2 = model_names[i], model_names[j]
-            acc1 = models_accuracy_history[model1]
-            acc2 = models_accuracy_history[model2]
+    for i in range(len(nombres_modelos)):
+        for j in range(i+1, len(nombres_modelos)):
+            modelo1, modelo2 = nombres_modelos[i], nombres_modelos[j]
+            precision1 = historial_precision_modelos[modelo1]
+            precision2 = historial_precision_modelos[modelo2]
             
             # T-test pareado
-            t_stat, p_value = stats.ttest_rel(acc1, acc2)
+            estadistico_t, valor_p = stats.ttest_rel(precision1, precision2)
             
-            t_test_results[f'{model1} vs {model2}'] = {
-                't_statistic': float(t_stat),
-                'p_value': float(p_value),
-                'significant': p_value < 0.05,
-                'mean_diff': float(np.mean(acc1) - np.mean(acc2))
+            resultados_t_test[f'{modelo1} vs {modelo2}'] = {
+                'estadistico_t': float(estadistico_t),
+                'valor_p': float(valor_p),
+                'significativo': valor_p < 0.05,
+                'diferencia_medias': float(np.mean(precision1) - np.mean(precision2))
             }
     
-    results['t_tests'] = t_test_results
+    resultados['pruebas_t'] = resultados_t_test
     
     # Z-test de proporciones (comparando accuracy en conjunto de validación)
     # Simulamos con 1000 imágenes de validación
-    n_val = 1000
-    z_test_results = {}
+    n_validacion = 1000
+    resultados_z_test = {}
     
-    for i in range(len(model_names)):
-        for j in range(i+1, len(model_names)):
-            model1, model2 = model_names[i], model_names[j]
+    for i in range(len(nombres_modelos)):
+        for j in range(i+1, len(nombres_modelos)):
+            modelo1, modelo2 = nombres_modelos[i], nombres_modelos[j]
             
             # Calcular éxitos basados en accuracy promedio
-            successes1 = int(np.mean(models_accuracy_history[model1]) * n_val)
-            successes2 = int(np.mean(models_accuracy_history[model2]) * n_val)
+            aciertos1 = int(np.mean(historial_precision_modelos[modelo1]) * n_validacion)
+            aciertos2 = int(np.mean(historial_precision_modelos[modelo2]) * n_validacion)
             
-            p1 = successes1 / n_val
-            p2 = successes2 / n_val
+            p1 = aciertos1 / n_validacion
+            p2 = aciertos2 / n_validacion
             
             # Proporción combinada
-            p_combined = (successes1 + successes2) / (2 * n_val)
+            p_combinada = (aciertos1 + aciertos2) / (2 * n_validacion)
             
             # Error estándar
-            se = np.sqrt(p_combined * (1 - p_combined) * (2/n_val))
+            error_estandar = np.sqrt(p_combinada * (1 - p_combinada) * (2/n_validacion))
             
             # Estadístico Z
-            z = (p1 - p2) / se if se > 0 else 0
+            z = (p1 - p2) / error_estandar if error_estandar > 0 else 0
             
             # P-valor (two-tailed)
-            p_value = 2 * (1 - stats.norm.cdf(abs(z)))
+            valor_p = 2 * (1 - stats.norm.cdf(abs(z)))
             
-            z_test_results[f'{model1} vs {model2}'] = {
-                'z_statistic': float(z),
-                'p_value': float(p_value),
+            resultados_z_test[f'{modelo1} vs {modelo2}'] = {
+                'estadistico_z': float(z),
+                'valor_p': float(valor_p),
                 'prop1': float(p1),
                 'prop2': float(p2),
-                'significant': p_value < 0.05
+                'significativo': valor_p < 0.05
             }
     
-    results['z_tests'] = z_test_results
+    resultados['pruebas_z'] = resultados_z_test
     
-    return results
+    return resultados
 
-def create_statistical_plots(predictions):
+def crear_graficos_estadisticos(predicciones):
     """Crea visualizaciones estadísticas para el análisis"""
-    plots = {}
+    graficos = {}
     
     # 1. Gráfico de intervalos de confianza
     fig, ax = plt.subplots(figsize=(10, 6))
-    models = list(predictions.keys())
-    confidences = [predictions[m]['confidence'] for m in models]
+    modelos = list(predicciones.keys())
+    confianzas = [predicciones[m]['confianza'] for m in modelos]
     colors = ['#3498db', '#e74c3c', '#2ecc71']
     
-    bars = ax.bar(models, confidences, color=colors, alpha=0.7)
+    barras = ax.bar(modelos, confianzas, color=colors, alpha=0.7)
     ax.axhline(y=0.7, color='red', linestyle='--', label='Umbral de confianza (70%)')
     ax.set_ylim(0, 1)
     ax.set_ylabel('Confianza', fontsize=12)
@@ -512,32 +512,32 @@ def create_statistical_plots(predictions):
     ax.legend()
     
     # Añadir valores en las barras
-    for bar, conf in zip(bars, confidences):
-        height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
+    for barra, conf in zip(barras, confianzas):
+        altura = barra.get_height()
+        ax.text(barra.get_x() + barra.get_width()/2., altura + 0.01,
                 f'{conf:.2%}', ha='center', va='bottom')
     
     plt.tight_layout()
     buf = BytesIO()
     plt.savefig(buf, format='png', dpi=150)
     buf.seek(0)
-    plots['confidence_comparison'] = buf
+    graficos['comparacion_confianza'] = buf
     plt.close()
     
     # 2. Matriz de calor de probabilidades
     fig, ax = plt.subplots(figsize=(12, 8))
     
     # Crear matriz de probabilidades
-    prob_matrix = []
-    for model in predictions:
-        prob_matrix.append(predictions[model]['probabilities'])
+    matriz_probabilidades = []
+    for modelo in predicciones:
+        matriz_probabilidades.append(predicciones[modelo]['probabilidades'])
     
-    prob_matrix = np.array(prob_matrix)
+    matriz_probabilidades = np.array(matriz_probabilidades)
     
     # Crear heatmap
-    sns.heatmap(prob_matrix, 
-                xticklabels=[DISEASE_INFO[d]['es'][:15] for d in DISEASE_CLASSES],
-                yticklabels=models,
+    sns.heatmap(matriz_probabilidades, 
+                xticklabels=[INFO_ENFERMEDADES[d]['es'][:15] for d in CLASES_ENFERMEDADES],
+                yticklabels=modelos,
                 cmap='YlOrRd',
                 annot=True,
                 fmt='.2%',
@@ -551,7 +551,7 @@ def create_statistical_plots(predictions):
     buf = BytesIO()
     plt.savefig(buf, format='png', dpi=150)
     buf.seek(0)
-    plots['probability_heatmap'] = buf
+    graficos['mapa_calor_probabilidad'] = buf
     plt.close()
     
     # 3. Gráfico de matriz de confusión (ejemplo)
@@ -559,23 +559,23 @@ def create_statistical_plots(predictions):
     
     # Simular una matriz de confusión para el mejor modelo
     np.random.seed(42)
-    n_classes = len(DISEASE_CLASSES)
-    cm = np.zeros((n_classes, n_classes), dtype=int)
+    num_clases = len(CLASES_ENFERMEDADES)
+    mc = np.zeros((num_clases, num_clases), dtype=int)
     
     # Llenar diagonal principal con valores altos (aciertos)
-    for i in range(n_classes):
-        cm[i, i] = np.random.randint(85, 98)
+    for i in range(num_clases):
+        mc[i, i] = np.random.randint(85, 98)
         # Distribuir algunos errores
-        for j in range(n_classes):
+        for j in range(num_clases):
             if i != j:
-                cm[i, j] = np.random.randint(0, 5)
+                mc[i, j] = np.random.randint(0, 5)
     
-    sns.heatmap(cm, 
+    sns.heatmap(mc, 
                 annot=True, 
                 fmt='d', 
                 cmap='Blues',
-                xticklabels=[DISEASE_INFO[d]['es'][:10] for d in DISEASE_CLASSES],
-                yticklabels=[DISEASE_INFO[d]['es'][:10] for d in DISEASE_CLASSES],
+                xticklabels=[INFO_ENFERMEDADES[d]['es'][:10] for d in CLASES_ENFERMEDADES],
+                yticklabels=[INFO_ENFERMEDADES[d]['es'][:10] for d in CLASES_ENFERMEDADES],
                 ax=ax)
     ax.set_title('Matriz de Confusión - EfficientNetB7 (Ejemplo)', fontsize=14)
     ax.set_xlabel('Predicción')
@@ -586,54 +586,54 @@ def create_statistical_plots(predictions):
     buf = BytesIO()
     plt.savefig(buf, format='png', dpi=150)
     buf.seek(0)
-    plots['confusion_matrix'] = buf
+    graficos['matriz_confusion'] = buf
     plt.close()
     
-    return plots
+    return graficos
 
-def create_additional_plots_for_pdf(predictions, statistical_results):
+def crear_graficos_adicionales_para_pdf(predicciones, resultados_estadisticos):
     """Crea gráficos adicionales específicamente para el PDF"""
-    plots = {}
+    graficos = {}
     
     # 1. Gráfico de consenso
     fig, ax = plt.subplots(figsize=(10, 6))
     
     # Recopilar todas las predicciones
-    all_predictions = {}
-    for model_name, result in predictions.items():
-        probs = result['probabilities']
-        for i, disease in enumerate(DISEASE_CLASSES):
-            if disease not in all_predictions:
-                all_predictions[disease] = []
-            all_predictions[disease].append(probs[i])
+    todas_las_predicciones = {}
+    for nombre_modelo, resultado in predicciones.items():
+        lista_probabilidades = resultado['probabilidades']
+        for i, enfermedad in enumerate(CLASES_ENFERMEDADES):
+            if enfermedad not in todas_las_predicciones:
+                todas_las_predicciones[enfermedad] = []
+            todas_las_predicciones[enfermedad].append(lista_probabilidades[i])
     
     # Calcular promedio y desviación estándar
-    consensus_data = []
-    for disease, probs in all_predictions.items():
-        consensus_data.append({
-            'disease': DISEASE_INFO[disease]['es'],
-            'mean': np.mean(probs),
-            'std': np.std(probs)
+    datos_consenso = []
+    for enfermedad, lista_probabilidades in todas_las_predicciones.items():
+        datos_consenso.append({
+            'enfermedad': INFO_ENFERMEDADES[enfermedad]['es'],
+            'media': np.mean(lista_probabilidades),
+            'desv_est': np.std(lista_probabilidades)
         })
     
     # Ordenar por probabilidad promedio
-    consensus_data = sorted(consensus_data, key=lambda x: x['mean'], reverse=True)[:5]
+    datos_consenso = sorted(datos_consenso, key=lambda x: x['media'], reverse=True)[:5]
     
     # Crear gráfico
-    diseases = [d['disease'] for d in consensus_data]
-    means = [d['mean'] for d in consensus_data]
-    stds = [d['std'] for d in consensus_data]
+    enfermedades = [d['enfermedad'] for d in datos_consenso]
+    medias = [d['media'] for d in datos_consenso]
+    desviaciones_estandar = [d['desv_est'] for d in datos_consenso]
     
-    bars = ax.bar(diseases, means, yerr=stds, capsize=5, color='skyblue', edgecolor='navy', alpha=0.7)
+    barras = ax.bar(enfermedades, medias, yerr=desviaciones_estandar, capsize=5, color='skyblue', edgecolor='navy', alpha=0.7)
     ax.set_ylabel('Probabilidad Promedio', fontsize=12)
     ax.set_title('Top 5 Diagnósticos por Consenso', fontsize=14, fontweight='bold')
-    ax.set_ylim(0, max(means) * 1.2 if means else 1)
+    ax.set_ylim(0, max(medias) * 1.2 if medias else 1)
     
     # Añadir valores
-    for bar, mean in zip(bars, means):
-        height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                f'{mean:.2%}', ha='center', va='bottom')
+    for barra, media in zip(barras, medias):
+        altura = barra.get_height()
+        ax.text(barra.get_x() + barra.get_width()/2., altura + 0.01,
+                f'{media:.2%}', ha='center', va='bottom')
     
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
@@ -641,24 +641,24 @@ def create_additional_plots_for_pdf(predictions, statistical_results):
     buf = BytesIO()
     plt.savefig(buf, format='png', dpi=150)
     buf.seek(0)
-    plots['consensus_plot'] = buf
+    graficos['grafico_consenso'] = buf
     plt.close()
     
     # 2. Gráfico de acuerdo entre modelos
     fig, ax = plt.subplots(figsize=(8, 8))
     
-    model_names = list(predictions.keys())
-    agreement_matrix = np.zeros((len(model_names), len(model_names)))
+    nombres_modelos = list(predicciones.keys())
+    matriz_acuerdo = np.zeros((len(nombres_modelos), len(nombres_modelos)))
     
-    for i, model1 in enumerate(model_names):
-        for j, model2 in enumerate(model_names):
-            pred1 = predictions[model1]['prediction']
-            pred2 = predictions[model2]['prediction']
-            agreement_matrix[i, j] = 1.0 if pred1 == pred2 else 0.0
+    for i, modelo1 in enumerate(nombres_modelos):
+        for j, modelo2 in enumerate(nombres_modelos):
+            pred1 = predicciones[modelo1]['prediccion']
+            pred2 = predicciones[modelo2]['prediccion']
+            matriz_acuerdo[i, j] = 1.0 if pred1 == pred2 else 0.0
     
-    sns.heatmap(agreement_matrix,
-                xticklabels=model_names,
-                yticklabels=model_names,
+    sns.heatmap(matriz_acuerdo,
+                xticklabels=nombres_modelos,
+                yticklabels=nombres_modelos,
                 annot=True,
                 fmt='.0f',
                 cmap='Blues',
@@ -673,22 +673,22 @@ def create_additional_plots_for_pdf(predictions, statistical_results):
     buf = BytesIO()
     plt.savefig(buf, format='png', dpi=150)
     buf.seek(0)
-    plots['agreement_matrix'] = buf
+    graficos['matriz_acuerdo'] = buf
     plt.close()
     
-    return plots
+    return graficos
 
-def generate_pdf_report(predictions, image_buffer, statistical_results, traditional_tests=None):
+def generar_reporte_pdf(predicciones, buffer_imagen, resultados_estadisticos, pruebas_tradicionales=None):
     """Genera un reporte PDF completo del análisis con todos los gráficos"""
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
-    story = []
-    styles = getSampleStyleSheet()
+    documento = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    elementos_pdf = []
+    estilos = getSampleStyleSheet()
     
     # Título personalizado
-    title_style = ParagraphStyle(
+    estilo_titulo = ParagraphStyle(
         'CustomTitle',
-        parent=styles['Title'],
+        parent=estilos['Title'],
         fontSize=24,
         textColor=colors.HexColor('#2c3e50'),
         spaceAfter=30,
@@ -696,55 +696,55 @@ def generate_pdf_report(predictions, image_buffer, statistical_results, traditio
     )
     
     # Agregar título
-    story.append(Paragraph("Reporte de Análisis de Enfermedades en Tomate", title_style))
-    story.append(Spacer(1, 0.2*inch))
+    elementos_pdf.append(Paragraph("Reporte de Análisis de Enfermedades en Tomate", estilo_titulo))
+    elementos_pdf.append(Spacer(1, 0.2*inch))
     
     # Información del reporte
-    info_style = ParagraphStyle(
+    estilo_info = ParagraphStyle(
         'InfoStyle',
-        parent=styles['Normal'],
+        parent=estilos['Normal'],
         fontSize=10,
         textColor=colors.HexColor('#7f8c8d')
     )
-    story.append(Paragraph(f"Fecha de generación: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", info_style))
-    story.append(Spacer(1, 0.3*inch))
+    elementos_pdf.append(Paragraph(f"Fecha de generación: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", estilo_info))
+    elementos_pdf.append(Spacer(1, 0.3*inch))
     
     # SECCIÓN 1: Imagen analizada
-    story.append(Paragraph("<b>Imagen Analizada:</b>", styles['Heading2']))
-    if image_buffer:
+    elementos_pdf.append(Paragraph("<b>Imagen Analizada:</b>", estilos['Heading2']))
+    if buffer_imagen:
         try:
             # Asegurarse de que el buffer esté al inicio
-            image_buffer.seek(0)
+            buffer_imagen.seek(0)
             # Crear imagen más grande para mejor visualización
-            img = RLImage(image_buffer, width=4*inch, height=4*inch)
+            img_pdf = RLImage(buffer_imagen, width=4*inch, height=4*inch)
             # Centrar la imagen
-            img_table = Table([[img]], colWidths=[4*inch])
-            img_table.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
-            story.append(img_table)
-            story.append(Spacer(1, 0.3*inch))
+            tabla_img = Table([[img_pdf]], colWidths=[4*inch])
+            tabla_img.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
+            elementos_pdf.append(tabla_img)
+            elementos_pdf.append(Spacer(1, 0.3*inch))
         except Exception as e:
-            story.append(Paragraph(f"Error al cargar la imagen: {str(e)}", styles['Normal']))
-            story.append(Spacer(1, 0.3*inch))
+            elementos_pdf.append(Paragraph(f"Error al cargar la imagen: {str(e)}", estilos['Normal']))
+            elementos_pdf.append(Spacer(1, 0.3*inch))
     else:
-        story.append(Paragraph("No se pudo cargar la imagen analizada", styles['Normal']))
-        story.append(Spacer(1, 0.3*inch))
+        elementos_pdf.append(Paragraph("No se pudo cargar la imagen analizada", estilos['Normal']))
+        elementos_pdf.append(Spacer(1, 0.3*inch))
     
     # SECCIÓN 2: Resultados por modelo
-    story.append(Paragraph("Resultados del Análisis por Modelo", styles['Heading1']))
-    story.append(Spacer(1, 0.2*inch))
+    elementos_pdf.append(Paragraph("Resultados del Análisis por Modelo", estilos['Heading1']))
+    elementos_pdf.append(Spacer(1, 0.2*inch))
     
     # Tabla de resultados principales
-    data = [['Modelo', 'Diagnóstico', 'Confianza', 'Tiempo (s)']]
-    for model_name, result in predictions.items():
-        data.append([
-            model_name,
-            DISEASE_INFO[result['prediction']]['es'],
-            f"{result['confidence']:.2%}",
-            f"{result['inference_time']:.3f}"
+    datos = [['Modelo', 'Diagnóstico', 'Confianza', 'Tiempo (s)']]
+    for nombre_modelo, resultado in predicciones.items():
+        datos.append([
+            nombre_modelo,
+            INFO_ENFERMEDADES[resultado['prediccion']]['es'],
+            f"{resultado['confianza']:.2%}",
+            f"{resultado['tiempo_inferencia']:.3f}"
         ])
     
-    table = Table(data, colWidths=[2.5*inch, 2.5*inch, 1.5*inch, 1.5*inch])
-    table.setStyle(TableStyle([
+    tabla = Table(datos, colWidths=[2.5*inch, 2.5*inch, 1.5*inch, 1.5*inch])
+    tabla.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -754,103 +754,103 @@ def generate_pdf_report(predictions, image_buffer, statistical_results, traditio
         ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
         ('GRID', (0, 0), (-1, -1), 1, colors.black)
     ]))
-    story.append(table)
-    story.append(Spacer(1, 0.5*inch))
+    elementos_pdf.append(tabla)
+    elementos_pdf.append(Spacer(1, 0.5*inch))
     
     # SECCIÓN 3: Gráficos de análisis estadístico
-    story.append(PageBreak())
-    story.append(Paragraph("Visualizaciones Estadísticas", styles['Heading1']))
-    story.append(Spacer(1, 0.2*inch))
+    elementos_pdf.append(PageBreak())
+    elementos_pdf.append(Paragraph("Visualizaciones Estadísticas", estilos['Heading1']))
+    elementos_pdf.append(Spacer(1, 0.2*inch))
     
     # Generar y agregar gráficos
-    plots = create_statistical_plots(predictions)
-    additional_plots = create_additional_plots_for_pdf(predictions, statistical_results)
+    graficos = crear_graficos_estadisticos(predicciones)
+    graficos_adicionales = crear_graficos_adicionales_para_pdf(predicciones, resultados_estadisticos)
     
     # Gráfico de comparación de confianza
-    story.append(Paragraph("<b>Comparación de Niveles de Confianza</b>", styles['Heading3']))
-    if 'confidence_comparison' in plots:
-        plots['confidence_comparison'].seek(0)
-        img_conf = RLImage(plots['confidence_comparison'], width=5*inch, height=3*inch)
-        img_table = Table([[img_conf]], colWidths=[5*inch])
-        img_table.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
-        story.append(img_table)
-        story.append(Spacer(1, 0.3*inch))
+    elementos_pdf.append(Paragraph("<b>Comparación de Niveles de Confianza</b>", estilos['Heading3']))
+    if 'comparacion_confianza' in graficos:
+        graficos['comparacion_confianza'].seek(0)
+        img_confianza = RLImage(graficos['comparacion_confianza'], width=5*inch, height=3*inch)
+        tabla_img = Table([[img_confianza]], colWidths=[5*inch])
+        tabla_img.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
+        elementos_pdf.append(tabla_img)
+        elementos_pdf.append(Spacer(1, 0.3*inch))
     
     # Gráfico de consenso
-    story.append(Paragraph("<b>Análisis de Consenso entre Modelos</b>", styles['Heading3']))
-    if 'consensus_plot' in additional_plots:
-        additional_plots['consensus_plot'].seek(0)
-        img_consensus = RLImage(additional_plots['consensus_plot'], width=5*inch, height=3*inch)
-        img_table = Table([[img_consensus]], colWidths=[5*inch])
-        img_table.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
-        story.append(img_table)
-        story.append(Spacer(1, 0.3*inch))
+    elementos_pdf.append(Paragraph("<b>Análisis de Consenso entre Modelos</b>", estilos['Heading3']))
+    if 'grafico_consenso' in graficos_adicionales:
+        graficos_adicionales['grafico_consenso'].seek(0)
+        img_consenso = RLImage(graficos_adicionales['grafico_consenso'], width=5*inch, height=3*inch)
+        tabla_img = Table([[img_consenso]], colWidths=[5*inch])
+        tabla_img.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
+        elementos_pdf.append(tabla_img)
+        elementos_pdf.append(Spacer(1, 0.3*inch))
     
     # Matriz de acuerdo
-    story.append(PageBreak())
-    story.append(Paragraph("<b>Matriz de Acuerdo entre Modelos</b>", styles['Heading3']))
-    if 'agreement_matrix' in additional_plots:
-        additional_plots['agreement_matrix'].seek(0)
-        img_agreement = RLImage(additional_plots['agreement_matrix'], width=4*inch, height=4*inch)
-        img_table = Table([[img_agreement]], colWidths=[4*inch])
-        img_table.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
-        story.append(img_table)
-        story.append(Spacer(1, 0.3*inch))
+    elementos_pdf.append(PageBreak())
+    elementos_pdf.append(Paragraph("<b>Matriz de Acuerdo entre Modelos</b>", estilos['Heading3']))
+    if 'matriz_acuerdo' in graficos_adicionales:
+        graficos_adicionales['matriz_acuerdo'].seek(0)
+        img_acuerdo = RLImage(graficos_adicionales['matriz_acuerdo'], width=4*inch, height=4*inch)
+        tabla_img = Table([[img_acuerdo]], colWidths=[4*inch])
+        tabla_img.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
+        elementos_pdf.append(tabla_img)
+        elementos_pdf.append(Spacer(1, 0.3*inch))
     
     # Matriz de calor de probabilidades
-    story.append(Paragraph("<b>Matriz de Probabilidades por Modelo</b>", styles['Heading3']))
-    if 'probability_heatmap' in plots:
-        plots['probability_heatmap'].seek(0)
-        img_heat = RLImage(plots['probability_heatmap'], width=6*inch, height=4*inch)
-        img_table = Table([[img_heat]], colWidths=[6*inch])
-        img_table.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
-        story.append(img_table)
-        story.append(Spacer(1, 0.3*inch))
+    elementos_pdf.append(Paragraph("<b>Matriz de Probabilidades por Modelo</b>", estilos['Heading3']))
+    if 'mapa_calor_probabilidad' in graficos:
+        graficos['mapa_calor_probabilidad'].seek(0)
+        img_mapa_calor = RLImage(graficos['mapa_calor_probabilidad'], width=6*inch, height=4*inch)
+        tabla_img = Table([[img_mapa_calor]], colWidths=[6*inch])
+        tabla_img.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
+        elementos_pdf.append(tabla_img)
+        elementos_pdf.append(Spacer(1, 0.3*inch))
     
     # Matriz de confusión
-    story.append(PageBreak())
-    story.append(Paragraph("<b>Matriz de Confusión (Ejemplo con datos de validación)</b>", styles['Heading3']))
-    if 'confusion_matrix' in plots:
-        plots['confusion_matrix'].seek(0)
-        img_cm = RLImage(plots['confusion_matrix'], width=5.5*inch, height=4.5*inch)
-        img_table = Table([[img_cm]], colWidths=[5.5*inch])
-        img_table.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
-        story.append(img_table)
-        story.append(Spacer(1, 0.3*inch))
+    elementos_pdf.append(PageBreak())
+    elementos_pdf.append(Paragraph("<b>Matriz de Confusión (Ejemplo con datos de validación)</b>", estilos['Heading3']))
+    if 'matriz_confusion' in graficos:
+        graficos['matriz_confusion'].seek(0)
+        img_mc = RLImage(graficos['matriz_confusion'], width=5.5*inch, height=4.5*inch)
+        tabla_img = Table([[img_mc]], colWidths=[5.5*inch])
+        tabla_img.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER')]))
+        elementos_pdf.append(tabla_img)
+        elementos_pdf.append(Spacer(1, 0.3*inch))
     
     # SECCIÓN 4: Análisis estadístico
-    story.append(PageBreak())
-    story.append(Paragraph("Análisis Estadístico", styles['Heading1']))
-    story.append(Spacer(1, 0.2*inch))
+    elementos_pdf.append(PageBreak())
+    elementos_pdf.append(Paragraph("Análisis Estadístico", estilos['Heading1']))
+    elementos_pdf.append(Spacer(1, 0.2*inch))
     
     # Consenso
-    story.append(Paragraph(f"<b>Diagnóstico por Consenso:</b> {DISEASE_INFO[statistical_results['consensus']]['es']} "
-                          f"(Confianza promedio: {statistical_results['consensus_confidence']:.2%})", 
-                          styles['Normal']))
-    story.append(Spacer(1, 0.2*inch))
+    elementos_pdf.append(Paragraph(f"<b>Diagnóstico por Consenso:</b> {INFO_ENFERMEDADES[resultados_estadisticos['consenso']]['es']} "
+                               f"(Confianza promedio: {resultados_estadisticos['confianza_consenso']:.2%})", 
+                               estilos['Normal']))
+    elementos_pdf.append(Spacer(1, 0.2*inch))
     
     # Acuerdo entre modelos
-    if 'kappa_scores' in statistical_results:
-        story.append(Paragraph("<b>Nivel de Acuerdo entre Modelos:</b>", styles['Normal']))
-        for comparison, score in statistical_results['kappa_scores'].items():
-            agreement_text = "Acuerdo perfecto" if score == 1.0 else "Desacuerdo"
-            story.append(Paragraph(f"• {comparison}: {agreement_text}", styles['Normal']))
-        story.append(Spacer(1, 0.2*inch))
+    if 'puntuaciones_kappa' in resultados_estadisticos:
+        elementos_pdf.append(Paragraph("<b>Nivel de Acuerdo entre Modelos:</b>", estilos['Normal']))
+        for comparacion, score in resultados_estadisticos['puntuaciones_kappa'].items():
+            texto_acuerdo = "Acuerdo perfecto" if score == 1.0 else "Desacuerdo"
+            elementos_pdf.append(Paragraph(f"• {comparacion}: {texto_acuerdo}", estilos['Normal']))
+        elementos_pdf.append(Spacer(1, 0.2*inch))
     
     # Análisis de entropía (incertidumbre)
-    story.append(Paragraph("<b>Análisis de Incertidumbre (Entropía):</b>", styles['Normal']))
-    entropy_data = []
-    for model_name, result in predictions.items():
-        probs = result['probabilities']
-        entropy = -np.sum(probs * np.log2(probs + 1e-10))
-        entropy_data.append([
-            model_name,
-            f"{entropy:.4f}",
-            "Baja incertidumbre" if entropy < 1 else "Alta incertidumbre"
+    elementos_pdf.append(Paragraph("<b>Análisis de Incertidumbre (Entropía):</b>", estilos['Normal']))
+    datos_entropia = []
+    for nombre_modelo, resultado in predicciones.items():
+        lista_probabilidades = resultado['probabilidades']
+        entropia = -np.sum(lista_probabilidades * np.log2(lista_probabilidades + 1e-10))
+        datos_entropia.append([
+            nombre_modelo,
+            f"{entropia:.4f}",
+            "Baja incertidumbre" if entropia < 1 else "Alta incertidumbre"
         ])
     
-    entropy_table = Table([['Modelo', 'Entropía', 'Interpretación']] + entropy_data)
-    entropy_table.setStyle(TableStyle([
+    tabla_entropia = Table([['Modelo', 'Entropía', 'Interpretación']] + datos_entropia)
+    tabla_entropia.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#95a5a6')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -858,33 +858,33 @@ def generate_pdf_report(predictions, image_buffer, statistical_results, traditio
         ('GRID', (0, 0), (-1, -1), 1, colors.grey),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
     ]))
-    story.append(entropy_table)
-    story.append(Spacer(1, 0.3*inch))
+    elementos_pdf.append(tabla_entropia)
+    elementos_pdf.append(Spacer(1, 0.3*inch))
     
     # SECCIÓN 5: Pruebas estadísticas tradicionales
-    if traditional_tests:
-        story.append(PageBreak())
-        story.append(Paragraph("Pruebas Estadísticas Tradicionales", styles['Heading1']))
-        story.append(Spacer(1, 0.2*inch))
+    if pruebas_tradicionales:
+        elementos_pdf.append(PageBreak())
+        elementos_pdf.append(Paragraph("Pruebas Estadísticas Tradicionales", estilos['Heading1']))
+        elementos_pdf.append(Spacer(1, 0.2*inch))
         
         # T-Test pareado
-        if 't_tests' in traditional_tests:
-            story.append(Paragraph("<b>T-Test Pareado (Comparación de Precisiones)</b>", styles['Heading2']))
-            story.append(Paragraph("Basado en datos históricos simulados de validación", info_style))
-            story.append(Spacer(1, 0.1*inch))
+        if 'pruebas_t' in pruebas_tradicionales:
+            elementos_pdf.append(Paragraph("<b>T-Test Pareado (Comparación de Precisiones)</b>", estilos['Heading2']))
+            elementos_pdf.append(Paragraph("Basado en datos históricos simulados de validación", estilo_info))
+            elementos_pdf.append(Spacer(1, 0.1*inch))
             
-            t_test_data = [['Comparación', 't-statistic', 'p-value', 'Interpretación']]
-            for comp, result in traditional_tests['t_tests'].items():
-                interpretation = "Diferencia significativa" if result['significant'] else "Sin diferencia significativa"
-                t_test_data.append([
-                    comp,
-                    f"{result['t_statistic']:.4f}",
-                    f"{result['p_value']:.4f}",
-                    interpretation
+            datos_t_test = [['Comparación', 't-statistic', 'p-value', 'Interpretación']]
+            for comparacion, resultado in pruebas_tradicionales['pruebas_t'].items():
+                interpretacion = "Diferencia significativa" if resultado['significativo'] else "Sin diferencia significativa"
+                datos_t_test.append([
+                    comparacion,
+                    f"{resultado['estadistico_t']:.4f}",
+                    f"{resultado['valor_p']:.4f}",
+                    interpretacion
                 ])
             
-            t_table = Table(t_test_data, colWidths=[2.5*inch, 1.5*inch, 1.5*inch, 2.5*inch])
-            t_table.setStyle(TableStyle([
+            tabla_t = Table(datos_t_test, colWidths=[2.5*inch, 1.5*inch, 1.5*inch, 2.5*inch])
+            tabla_t.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#95a5a6')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -892,27 +892,27 @@ def generate_pdf_report(predictions, image_buffer, statistical_results, traditio
                 ('GRID', (0, 0), (-1, -1), 1, colors.grey),
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
             ]))
-            story.append(t_table)
-            story.append(Spacer(1, 0.3*inch))
+            elementos_pdf.append(tabla_t)
+            elementos_pdf.append(Spacer(1, 0.3*inch))
         
         # Z-Test de proporciones
-        if 'z_tests' in traditional_tests:
-            story.append(Paragraph("<b>Prueba Z de Proporciones</b>", styles['Heading2']))
-            story.append(Paragraph("Comparación sobre 1000 imágenes simuladas", info_style))
-            story.append(Spacer(1, 0.1*inch))
+        if 'pruebas_z' in pruebas_tradicionales:
+            elementos_pdf.append(Paragraph("<b>Prueba Z de Proporciones</b>", estilos['Heading2']))
+            elementos_pdf.append(Paragraph("Comparación sobre 1000 imágenes simuladas", estilo_info))
+            elementos_pdf.append(Spacer(1, 0.1*inch))
             
-            z_test_data = [['Comparación', 'z-statistic', 'p-value', 'Prop. 1', 'Prop. 2']]
-            for comp, result in traditional_tests['z_tests'].items():
-                z_test_data.append([
-                    comp,
-                    f"{result['z_statistic']:.4f}",
-                    f"{result['p_value']:.4f}",
-                    f"{result['prop1']:.3f}",
-                    f"{result['prop2']:.3f}"
+            datos_z_test = [['Comparación', 'z-statistic', 'p-value', 'Prop. 1', 'Prop. 2']]
+            for comparacion, resultado in pruebas_tradicionales['pruebas_z'].items():
+                datos_z_test.append([
+                    comparacion,
+                    f"{resultado['estadistico_z']:.4f}",
+                    f"{resultado['valor_p']:.4f}",
+                    f"{resultado['prop1']:.3f}",
+                    f"{resultado['prop2']:.3f}"
                 ])
             
-            z_table = Table(z_test_data, colWidths=[2.5*inch, 1.5*inch, 1.5*inch, 1*inch, 1*inch])
-            z_table.setStyle(TableStyle([
+            tabla_z = Table(datos_z_test, colWidths=[2.5*inch, 1.5*inch, 1.5*inch, 1*inch, 1*inch])
+            tabla_z.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#95a5a6')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -920,28 +920,28 @@ def generate_pdf_report(predictions, image_buffer, statistical_results, traditio
                 ('GRID', (0, 0), (-1, -1), 1, colors.grey),
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
             ]))
-            story.append(z_table)
-            story.append(Spacer(1, 0.3*inch))
+            elementos_pdf.append(tabla_z)
+            elementos_pdf.append(Spacer(1, 0.3*inch))
     
     # SECCIÓN 6: Top 5 probabilidades por modelo
-    story.append(PageBreak())
-    story.append(Paragraph("Análisis Detallado de Probabilidades", styles['Heading1']))
-    story.append(Spacer(1, 0.2*inch))
+    elementos_pdf.append(PageBreak())
+    elementos_pdf.append(Paragraph("Análisis Detallado de Probabilidades", estilos['Heading1']))
+    elementos_pdf.append(Spacer(1, 0.2*inch))
     
-    for model_name, result in predictions.items():
-        story.append(Paragraph(f"<b>{model_name}</b>", styles['Heading2']))
+    for nombre_modelo, resultado in predicciones.items():
+        elementos_pdf.append(Paragraph(f"<b>{nombre_modelo}</b>", estilos['Heading2']))
         
         # Crear tabla de probabilidades
-        probs_with_diseases = [(DISEASE_INFO[DISEASE_CLASSES[i]]['es'], prob) 
-                               for i, prob in enumerate(result['probabilities'])]
-        probs_sorted = sorted(probs_with_diseases, key=lambda x: x[1], reverse=True)[:5]
+        probabilidades_con_enfermedades = [(INFO_ENFERMEDADES[CLASES_ENFERMEDADES[i]]['es'], prob) 
+                                           for i, prob in enumerate(resultado['probabilidades'])]
+        probabilidades_ordenadas = sorted(probabilidades_con_enfermedades, key=lambda x: x[1], reverse=True)[:5]
         
-        prob_data = [['Enfermedad', 'Probabilidad']]
-        for disease, prob in probs_sorted:
-            prob_data.append([disease, f"{prob:.2%}"])
+        datos_probabilidad = [['Enfermedad', 'Probabilidad']]
+        for enfermedad, prob in probabilidades_ordenadas:
+            datos_probabilidad.append([enfermedad, f"{prob:.2%}"])
         
-        prob_table = Table(prob_data, colWidths=[3*inch, 2*inch])
-        prob_table.setStyle(TableStyle([
+        tabla_probabilidad = Table(datos_probabilidad, colWidths=[3*inch, 2*inch])
+        tabla_probabilidad.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#95a5a6')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -949,37 +949,37 @@ def generate_pdf_report(predictions, image_buffer, statistical_results, traditio
             ('GRID', (0, 0), (-1, -1), 1, colors.grey),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
         ]))
-        story.append(prob_table)
-        story.append(Spacer(1, 0.3*inch))
+        elementos_pdf.append(tabla_probabilidad)
+        elementos_pdf.append(Spacer(1, 0.3*inch))
     
     # SECCIÓN 7: Recomendaciones
-    story.append(PageBreak())
-    story.append(Paragraph("Recomendaciones", styles['Heading1']))
-    story.append(Spacer(1, 0.2*inch))
+    elementos_pdf.append(PageBreak())
+    elementos_pdf.append(Paragraph("Recomendaciones", estilos['Heading1']))
+    elementos_pdf.append(Spacer(1, 0.2*inch))
     
-    consensus_disease = statistical_results['consensus']
-    severity = DISEASE_INFO[consensus_disease]['severity']
+    enfermedad_consenso = resultados_estadisticos['consenso']
+    severidad = INFO_ENFERMEDADES[enfermedad_consenso]['severidad']
     
     # Información sobre la enfermedad detectada
-    severity_color = {
+    color_severidad = {
         'Alta': colors.red,
         'Media': colors.orange,
         'Baja': colors.yellow,
         'Ninguna': colors.green
     }
     
-    severity_style = ParagraphStyle(
+    estilo_severidad = ParagraphStyle(
         'SeverityStyle',
-        parent=styles['Normal'],
+        parent=estilos['Normal'],
         fontSize=12,
-        textColor=severity_color.get(severity, colors.black),
+        textColor=color_severidad.get(severidad, colors.black),
         fontName='Helvetica-Bold'
     )
     
-    story.append(Paragraph(f"Severidad detectada: {severity}", severity_style))
-    story.append(Spacer(1, 0.2*inch))
+    elementos_pdf.append(Paragraph(f"Severidad detectada: {severidad}", estilo_severidad))
+    elementos_pdf.append(Spacer(1, 0.2*inch))
     
-    recommendations = {
+    recomendaciones = {
         'Alta': [
             "Consulte inmediatamente con un experto agrónomo",
             "Aísle las plantas afectadas para evitar propagación",
@@ -1008,107 +1008,20 @@ def generate_pdf_report(predictions, image_buffer, statistical_results, traditio
         ]
     }
     
-    if severity in recommendations:
-        for rec in recommendations[severity]:
-            story.append(Paragraph(f"• {rec}", styles['Normal']))
+    if severidad in recomendaciones:
+        for recomendacion in recomendaciones[severidad]:
+            elementos_pdf.append(Paragraph(f"• {recomendacion}", estilos['Normal']))
     
-    story.append(Spacer(1, 0.5*inch))
-    story.append(Paragraph("<i>Nota: Este reporte es una herramienta de apoyo. Para un diagnóstico definitivo, "
-                          "consulte con un experto agrónomo.</i>", info_style))
+    elementos_pdf.append(Spacer(1, 0.5*inch))
+    elementos_pdf.append(Paragraph("<i>Nota: Este reporte es una herramienta de apoyo. Para un diagnóstico definitivo, "
+                               "consulte con un experto agrónomo.</i>", estilo_info))
     
     # Construir PDF
-    doc.build(story)
+    documento.build(elementos_pdf)
     buffer.seek(0)
     return buffer
 
-def create_additional_plots_for_pdf(predictions, statistical_results):
-    """Crea gráficos adicionales específicamente para el PDF"""
-    plots = {}
-    
-    # 1. Gráfico de consenso
-    fig, ax = plt.subplots(figsize=(10, 6))
-    
-    # Recopilar todas las predicciones
-    all_predictions = {}
-    for model_name, result in predictions.items():
-        probs = result['probabilities']
-        for i, disease in enumerate(DISEASE_CLASSES):
-            if disease not in all_predictions:
-                all_predictions[disease] = []
-            all_predictions[disease].append(probs[i])
-    
-    # Calcular promedio y desviación estándar
-    consensus_data = []
-    for disease, probs in all_predictions.items():
-        consensus_data.append({
-            'disease': DISEASE_INFO[disease]['es'],
-            'mean': np.mean(probs),
-            'std': np.std(probs)
-        })
-    
-    # Ordenar por probabilidad promedio
-    consensus_data = sorted(consensus_data, key=lambda x: x['mean'], reverse=True)[:5]
-    
-    # Crear gráfico
-    diseases = [d['disease'] for d in consensus_data]
-    means = [d['mean'] for d in consensus_data]
-    stds = [d['std'] for d in consensus_data]
-    
-    bars = ax.bar(diseases, means, yerr=stds, capsize=5, color='skyblue', edgecolor='navy', alpha=0.7)
-    ax.set_ylabel('Probabilidad Promedio', fontsize=12)
-    ax.set_title('Top 5 Diagnósticos por Consenso', fontsize=14, fontweight='bold')
-    ax.set_ylim(0, max(means) * 1.2)
-    
-    # Añadir valores
-    for bar, mean in zip(bars, means):
-        height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                f'{mean:.2%}', ha='center', va='bottom')
-    
-    plt.xticks(rotation=45, ha='right')
-    plt.tight_layout()
-    
-    buf = BytesIO()
-    plt.savefig(buf, format='png', dpi=150)
-    buf.seek(0)
-    plots['consensus_plot'] = buf
-    plt.close()
-    
-    # 2. Gráfico de acuerdo entre modelos
-    fig, ax = plt.subplots(figsize=(8, 8))
-    
-    model_names = list(predictions.keys())
-    agreement_matrix = np.zeros((len(model_names), len(model_names)))
-    
-    for i, model1 in enumerate(model_names):
-        for j, model2 in enumerate(model_names):
-            pred1 = predictions[model1]['prediction']
-            pred2 = predictions[model2]['prediction']
-            agreement_matrix[i, j] = 1.0 if pred1 == pred2 else 0.0
-    
-    sns.heatmap(agreement_matrix,
-                xticklabels=model_names,
-                yticklabels=model_names,
-                annot=True,
-                fmt='.0f',
-                cmap='Blues',
-                vmin=0,
-                vmax=1,
-                cbar_kws={'label': 'Acuerdo (1=Sí, 0=No)'},
-                ax=ax)
-    
-    ax.set_title('Matriz de Acuerdo entre Modelos', fontsize=14, fontweight='bold')
-    plt.tight_layout()
-    
-    buf = BytesIO()
-    plt.savefig(buf, format='png', dpi=150)
-    buf.seek(0)
-    plots['agreement_matrix'] = buf
-    plt.close()
-    
-    return plots
-
-def main():
+def principal():
     # Header principal
     st.markdown("""
     <div class="main-header">
@@ -1124,14 +1037,14 @@ def main():
         # Información de los modelos
         st.markdown("### 📊 Modelos Disponibles")
         
-        model_info = {
+        info_modelos = {
             'MobileNetV3': {'params': '5.4M', 'accuracy': '95.2%', 'speed': 'Rápido'},
             'EfficientNetB7': {'params': '66M', 'accuracy': '97.8%', 'speed': 'Lento'},
             'SVM + ResNet50': {'params': '25M', 'accuracy': '93.5%', 'speed': 'Medio'}
         }
         
-        for model, info in model_info.items():
-            with st.expander(f"📱 {model}"):
+        for modelo, info in info_modelos.items():
+            with st.expander(f"📱 {modelo}"):
                 st.write(f"**Parámetros:** {info['params']}")
                 st.write(f"**Precisión:** {info['accuracy']}")
                 st.write(f"**Velocidad:** {info['speed']}")
@@ -1140,13 +1053,13 @@ def main():
         
         # Opciones de visualización
         st.markdown("### 🎨 Opciones de Visualización")
-        show_probs = st.checkbox("Mostrar todas las probabilidades", value=True)
-        show_comparison = st.checkbox("Mostrar gráfico comparativo", value=True)
-        confidence_threshold = st.slider("Umbral de confianza", 0.0, 1.0, 0.7)
+        mostrar_probabilidades = st.checkbox("Mostrar todas las probabilidades", value=True)
+        mostrar_comparacion = st.checkbox("Mostrar gráfico comparativo", value=True)
+        umbral_confianza = st.slider("Umbral de confianza", 0.0, 1.0, 0.7)
     
     # Cargar modelos
-    models_dict = load_models()
-    if not models_dict:
+    diccionario_modelos = cargar_modelos()
+    if not diccionario_modelos:
         st.error("❌ No se pudieron cargar los modelos. Verifica que los archivos estén en la carpeta 'models/'.")
         return
     
@@ -1158,66 +1071,66 @@ def main():
         
         with col1:
             st.markdown("### 📤 Cargar Imagen")
-            uploaded_file = st.file_uploader(
+            archivo_cargado = st.file_uploader(
                 "Selecciona una imagen de hoja de tomate",
                 type=['jpg', 'jpeg', 'png'],
                 help="Formatos soportados: JPG, JPEG, PNG"
             )
             
-            # Bloque de código NUEVO Y CORREGIDO
-            if uploaded_file is not None:
+            # Bloque de código para manejar la carga de imagen
+            if archivo_cargado is not None:
                 # 1. Leer los bytes de la imagen y guardarlos en el estado de la sesión
-                image_bytes = uploaded_file.getvalue()
-                st.session_state['uploaded_image_bytes'] = image_bytes
+                bytes_imagen = archivo_cargado.getvalue()
+                st.session_state['uploaded_image_bytes'] = bytes_imagen
                 
                 # 2. Abrir la imagen desde los bytes para mostrarla y procesarla
-                image = Image.open(BytesIO(image_bytes)).convert('RGB')
-                st.image(image, caption="Imagen cargada", use_column_width=True)
+                imagen = Image.open(BytesIO(bytes_imagen)).convert('RGB')
+                st.image(imagen, caption="Imagen cargada", use_column_width=True)
                 
                 # 3. Guardar la imagen en el estado para el análisis (opcional pero buena práctica)
-                st.session_state['image_to_analyze'] = image
+                st.session_state['imagen_a_analizar'] = imagen
 
                 # Botón de análisis
                 if st.button("🔬 Analizar Imagen", type="primary"):
                     with st.spinner("Procesando..."):
-                        st.session_state['predictions'] = {}
+                        st.session_state['predicciones'] = {}
                         # Usar la imagen guardada en el estado
-                        image_to_process = st.session_state['image_to_analyze']
-                        for model_name, model in models_dict.items():
-                            result = predict_with_model(image_to_process, model, model_name)
-                            st.session_state['predictions'][model_name] = result
+                        imagen_a_procesar = st.session_state['imagen_a_analizar']
+                        for nombre_modelo, modelo in diccionario_modelos.items():
+                            resultado = predecir_con_modelo(imagen_a_procesar, modelo, nombre_modelo)
+                            st.session_state['predicciones'][nombre_modelo] = resultado
         
         with col2:
-            if 'predictions' in st.session_state and st.session_state['predictions']:
+            if 'predicciones' in st.session_state and st.session_state['predicciones']:
                 st.markdown("### 🎯 Resultados del Análisis")
                 
-                for model_name, result in st.session_state['predictions'].items():
-                    disease = result['prediction']
-                    confidence = result['confidence']
-                    time_taken = result['inference_time']
+                for nombre_modelo, resultado in st.session_state['predicciones'].items():
+                    enfermedad = resultado['prediccion']
+                    confianza = resultado['confianza']
+                    tiempo_transcurrido = resultado['tiempo_inferencia']
                     
                     # Card para cada modelo
                     st.markdown(f"""
                     <div class="model-card">
-                        <h4>🤖 {model_name}</h4>
+                        <h4>🤖 {nombre_modelo}</h4>
                         <div class="prediction-box">
-                            <strong>Diagnóstico:</strong> {DISEASE_INFO[disease]['es']}<br>
-                            <strong>Confianza:</strong> {confidence:.2%}<br>
-                            <strong>Severidad:</strong> {DISEASE_INFO[disease]['severity']}<br>
-                            <strong>Tiempo:</strong> {time_taken:.3f}s
+                            <strong>Diagnóstico:</strong> {INFO_ENFERMEDADES[enfermedad]['es']}<br>
+                            <strong>Confianza:</strong> {confianza:.2%}<br>
+                            <strong>Severidad:</strong> {INFO_ENFERMEDADES[enfermedad]['severidad']}<br>
+                            <strong>Tiempo:</strong> {tiempo_transcurrido:.3f}s
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
                     
                     # Mostrar todas las probabilidades si está activado
-                    if show_probs:
-                        probs_df = pd.DataFrame({
-                            'Enfermedad': [DISEASE_INFO[cls]['es'] for cls in DISEASE_CLASSES],
-                            'Probabilidad': result['probabilities']
+                    if mostrar_probabilidades:
+                        df_probabilidades = pd.DataFrame({
+                            'Enfermedad': [INFO_ENFERMEDADES[cls]['es'] for cls in CLASES_ENFERMEDADES],
+                            'Probabilidad': resultado['probabilidades']
                         }).sort_values('Probabilidad', ascending=False)
                         
                         fig = px.bar(
-                            probs_df.head(5), 
+                            df_probabilidades.head(5), 
                             x='Probabilidad', 
                             y='Enfermedad',
                             orientation='h',
@@ -1228,52 +1141,52 @@ def main():
                         st.plotly_chart(fig, use_container_width=True)
     
     with tab2:
-        if 'predictions' in st.session_state and st.session_state['predictions']:
+        if 'predicciones' in st.session_state and st.session_state['predicciones']:
             st.markdown("### 🔄 Comparación de Predicciones")
             
             # Tabla comparativa
-            comparison_data = []
-            for model_name, result in st.session_state['predictions'].items():
-                comparison_data.append({
-                    'Modelo': model_name,
-                    'Predicción': DISEASE_INFO[result['prediction']]['es'],
-                    'Confianza': f"{result['confidence']:.2%}",
-                    'Tiempo (s)': f"{result['inference_time']:.3f}"
+            datos_comparacion = []
+            for nombre_modelo, resultado in st.session_state['predicciones'].items():
+                datos_comparacion.append({
+                    'Modelo': nombre_modelo,
+                    'Predicción': INFO_ENFERMEDADES[resultado['prediccion']]['es'],
+                    'Confianza': f"{resultado['confianza']:.2%}",
+                    'Tiempo (s)': f"{resultado['tiempo_inferencia']:.3f}"
                 })
             
-            comparison_df = pd.DataFrame(comparison_data)
-            st.dataframe(comparison_df, use_container_width=True)
+            df_comparacion = pd.DataFrame(datos_comparacion)
+            st.dataframe(df_comparacion, use_container_width=True)
             
             # Gráfico de consenso
-            if show_comparison:
+            if mostrar_comparacion:
                 st.markdown("### 📊 Análisis de Consenso")
                 
                 # Recopilar todas las predicciones
-                all_predictions = {}
-                for model_name, result in st.session_state['predictions'].items():
-                    probs = result['probabilities']
-                    for i, disease in enumerate(DISEASE_CLASSES):
-                        if disease not in all_predictions:
-                            all_predictions[disease] = []
-                        all_predictions[disease].append(probs[i])
+                todas_las_predicciones = {}
+                for nombre_modelo, resultado in st.session_state['predicciones'].items():
+                    lista_probabilidades = resultado['probabilidades']
+                    for i, enfermedad in enumerate(CLASES_ENFERMEDADES):
+                        if enfermedad not in todas_las_predicciones:
+                            todas_las_predicciones[enfermedad] = []
+                        todas_las_predicciones[enfermedad].append(lista_probabilidades[i])
                 
                 # Calcular promedio de probabilidades
-                consensus_data = []
-                for disease, probs in all_predictions.items():
-                    consensus_data.append({
-                        'Enfermedad': DISEASE_INFO[disease]['es'],
-                        'Probabilidad Promedio': np.mean(probs),
-                        'Desviación Estándar': np.std(probs)
+                datos_consenso = []
+                for enfermedad, lista_probabilidades in todas_las_predicciones.items():
+                    datos_consenso.append({
+                        'Enfermedad': INFO_ENFERMEDADES[enfermedad]['es'],
+                        'Probabilidad Promedio': np.mean(lista_probabilidades),
+                        'Desviación Estándar': np.std(lista_probabilidades)
                     })
                 
-                consensus_df = pd.DataFrame(consensus_data).sort_values('Probabilidad Promedio', ascending=False)
+                df_consenso = pd.DataFrame(datos_consenso).sort_values('Probabilidad Promedio', ascending=False)
                 
                 # Gráfico de barras con error
                 fig = go.Figure()
                 fig.add_trace(go.Bar(
-                    x=consensus_df['Enfermedad'][:5],
-                    y=consensus_df['Probabilidad Promedio'][:5],
-                    error_y=dict(type='data', array=consensus_df['Desviación Estándar'][:5]),
+                    x=df_consenso['Enfermedad'][:5],
+                    y=df_consenso['Probabilidad Promedio'][:5],
+                    error_y=dict(type='data', array=df_consenso['Desviación Estándar'][:5]),
                     marker_color='lightblue',
                     name='Consenso'
                 ))
@@ -1288,29 +1201,29 @@ def main():
                 # Matriz de acuerdo entre modelos
                 st.markdown("### 🤝 Nivel de Acuerdo entre Modelos")
                 
-                model_names = list(st.session_state['predictions'].keys())
-                agreement_matrix = np.zeros((len(model_names), len(model_names)))
+                nombres_modelos = list(st.session_state['predicciones'].keys())
+                matriz_acuerdo = np.zeros((len(nombres_modelos), len(nombres_modelos)))
                 
-                for i, model1 in enumerate(model_names):
-                    for j, model2 in enumerate(model_names):
-                        pred1 = st.session_state['predictions'][model1]['prediction']
-                        pred2 = st.session_state['predictions'][model2]['prediction']
-                        agreement_matrix[i, j] = 1.0 if pred1 == pred2 else 0.0
+                for i, modelo1 in enumerate(nombres_modelos):
+                    for j, modelo2 in enumerate(nombres_modelos):
+                        pred1 = st.session_state['predicciones'][modelo1]['prediccion']
+                        pred2 = st.session_state['predicciones'][modelo2]['prediccion']
+                        matriz_acuerdo[i, j] = 1.0 if pred1 == pred2 else 0.0
                 
-                fig_heatmap = go.Figure(data=go.Heatmap(
-                    z=agreement_matrix,
-                    x=model_names,
-                    y=model_names,
+                fig_mapa_calor = go.Figure(data=go.Heatmap(
+                    z=matriz_acuerdo,
+                    x=nombres_modelos,
+                    y=nombres_modelos,
                     colorscale='Blues',
-                    text=agreement_matrix,
+                    text=matriz_acuerdo,
                     texttemplate='%{text}',
                     textfont={"size": 16}
                 ))
-                fig_heatmap.update_layout(
+                fig_mapa_calor.update_layout(
                     title='Matriz de Acuerdo entre Modelos',
                     height=400
                 )
-                st.plotly_chart(fig_heatmap, use_container_width=True)
+                st.plotly_chart(fig_mapa_calor, use_container_width=True)
         else:
             st.info("👆 Primero carga y analiza una imagen en la pestaña 'Análisis Individual'")
     
@@ -1318,7 +1231,7 @@ def main():
         st.markdown("### 📈 Métricas de Rendimiento")
         
         # Métricas simuladas (en producción, estas vendrían de la validación real)
-        metrics_data = {
+        datos_metricas = {
             'Modelo': ['MobileNetV3', 'EfficientNetB7', 'SVM + ResNet50'],
             'Precisión': [0.952, 0.978, 0.935],
             'Recall': [0.948, 0.975, 0.930],
@@ -1326,22 +1239,22 @@ def main():
             'Velocidad (FPS)': [45, 12, 25]
         }
         
-        metrics_df = pd.DataFrame(metrics_data)
+        df_metricas = pd.DataFrame(datos_metricas)
         
         # Gráfico de radar
-        categories = ['Precisión', 'Recall', 'F1-Score']
+        categorias = ['Precisión', 'Recall', 'F1-Score']
         
         fig_radar = go.Figure()
         
-        for idx, model in enumerate(metrics_df['Modelo']):
-            values = metrics_df.iloc[idx][categories].tolist()
-            values += values[:1]  # Cerrar el polígono
+        for idx, modelo in enumerate(df_metricas['Modelo']):
+            valores = df_metricas.iloc[idx][categorias].tolist()
+            valores += valores[:1]  # Cerrar el polígono
             
             fig_radar.add_trace(go.Scatterpolar(
-                r=values,
-                theta=categories + categories[:1],
+                r=valores,
+                theta=categorias + categorias[:1],
                 fill='toself',
-                name=model
+                name=modelo
             ))
         
         fig_radar.update_layout(
@@ -1359,7 +1272,7 @@ def main():
         # Tabla de métricas detalladas
         st.markdown("### 📋 Tabla de Métricas Detalladas")
         st.dataframe(
-            metrics_df.style.highlight_max(axis=0, subset=['Precisión', 'Recall', 'F1-Score', 'Velocidad (FPS)']),
+            df_metricas.style.highlight_max(axis=0, subset=['Precisión', 'Recall', 'F1-Score', 'Velocidad (FPS)']),
             use_container_width=True
         )
         
@@ -1367,8 +1280,8 @@ def main():
         col1, col2 = st.columns(2)
         
         with col1:
-            fig_tradeoff = px.scatter(
-                metrics_df,
+            fig_compensacion = px.scatter(
+                df_metricas,
                 x='Velocidad (FPS)',
                 y='Precisión',
                 size='F1-Score',
@@ -1377,28 +1290,28 @@ def main():
                 title='Trade-off: Velocidad vs Precisión',
                 labels={'Velocidad (FPS)': 'Velocidad (Imágenes/segundo)'}
             )
-            fig_tradeoff.update_traces(marker=dict(size=20))
-            st.plotly_chart(fig_tradeoff, use_container_width=True)
+            fig_compensacion.update_traces(marker=dict(size=20))
+            st.plotly_chart(fig_compensacion, use_container_width=True)
         
         with col2:
             # Tiempo de inferencia promedio
-            if 'predictions' in st.session_state:
-                inference_times = []
-                for model_name, result in st.session_state['predictions'].items():
-                    inference_times.append({
-                        'Modelo': model_name,
-                        'Tiempo (ms)': result['inference_time'] * 1000
+            if 'predicciones' in st.session_state:
+                tiempos_inferencia = []
+                for nombre_modelo, resultado in st.session_state['predicciones'].items():
+                    tiempos_inferencia.append({
+                        'Modelo': nombre_modelo,
+                        'Tiempo (ms)': resultado['tiempo_inferencia'] * 1000
                     })
-                
+
     with tab4:
         st.markdown("### 🧪 Análisis Estadístico Detallado")
         
-        if 'predictions' in st.session_state and st.session_state['predictions']:
+        if 'predicciones' in st.session_state and st.session_state['predicciones']:
             # Realizar pruebas estadísticas
-            statistical_results = perform_statistical_tests(st.session_state['predictions'])
+            resultados_estadisticos = realizar_pruebas_estadisticas(st.session_state['predicciones'])
             
             # Realizar pruebas estadísticas tradicionales
-            traditional_results = perform_traditional_statistical_tests()
+            resultados_tradicionales = realizar_pruebas_estadisticas_tradicionales()
             
             # Sección 1: Pruebas modernas
             st.markdown("#### 📊 Análisis de Concordancia y Consenso")
@@ -1409,33 +1322,33 @@ def main():
                 st.markdown("##### 🤝 Concordancia entre Modelos")
                 
                 # Mostrar Kappa de Cohen
-                if 'kappa_scores' in statistical_results:
-                    kappa_df = pd.DataFrame([
+                if 'puntuaciones_kappa' in resultados_estadisticos:
+                    df_kappa = pd.DataFrame([
                         {'Comparación': comp, 'Acuerdo': 'Perfecto' if score == 1.0 else 'Desacuerdo'}
-                        for comp, score in statistical_results['kappa_scores'].items()
+                        for comp, score in resultados_estadisticos['puntuaciones_kappa'].items()
                     ])
-                    st.dataframe(kappa_df, use_container_width=True)
+                    st.dataframe(df_kappa, use_container_width=True)
                 
                 # Análisis de consenso
                 st.markdown("##### 🎯 Análisis de Consenso")
-                consensus_info = f"""
-                **Diagnóstico por Consenso:** {DISEASE_INFO[statistical_results['consensus']]['es']}  
-                **Confianza Promedio:** {statistical_results['consensus_confidence']:.2%}  
-                **Severidad:** {DISEASE_INFO[statistical_results['consensus']]['severity']}
+                info_consenso = f"""
+                **Diagnóstico por Consenso:** {INFO_ENFERMEDADES[resultados_estadisticos['consenso']]['es']}  
+                **Confianza Promedio:** {resultados_estadisticos['confianza_consenso']:.2%}  
+                **Severidad:** {INFO_ENFERMEDADES[resultados_estadisticos['consenso']]['severidad']}
                 """
-                st.info(consensus_info)
+                st.info(info_consenso)
             
             with col2:
                 st.markdown("##### 📈 Análisis de Confianza")
                 
                 # Gráfico de confianza
-                conf_data = pd.DataFrame([
-                    {'Modelo': model, 'Confianza': conf}
-                    for model, conf in statistical_results['confidence_scores'].items()
+                datos_confianza = pd.DataFrame([
+                    {'Modelo': modelo, 'Confianza': conf}
+                    for modelo, conf in resultados_estadisticos['puntuaciones_confianza'].items()
                 ])
                 
-                fig_conf = px.bar(
-                    conf_data,
+                fig_confianza = px.bar(
+                    datos_confianza,
                     x='Modelo',
                     y='Confianza',
                     title='Niveles de Confianza por Modelo',
@@ -1443,9 +1356,9 @@ def main():
                     color_continuous_scale='RdYlGn',
                     range_y=[0, 1]
                 )
-                fig_conf.add_hline(y=0.7, line_dash="dash", line_color="red",
-                                  annotation_text="Umbral de confianza (70%)")
-                st.plotly_chart(fig_conf, use_container_width=True)
+                fig_confianza.add_hline(y=0.7, line_dash="dash", line_color="red",
+                                    annotation_text="Umbral de confianza (70%)")
+                st.plotly_chart(fig_confianza, use_container_width=True)
             
             # Sección 2: Pruebas estadísticas tradicionales
             st.markdown("---")
@@ -1457,17 +1370,17 @@ def main():
                 st.markdown("##### 📊 T-Test Pareado")
                 st.caption("Comparación de precisiones entre modelos (datos históricos simulados)")
                 
-                if 't_tests' in traditional_results:
-                    t_test_df = pd.DataFrame([
+                if 'pruebas_t' in resultados_tradicionales:
+                    df_t_test = pd.DataFrame([
                         {
                             'Comparación': comp,
-                            't-statistic': f"{result['t_statistic']:.4f}",
-                            'p-value': f"{result['p_value']:.4f}",
-                            'Significativo': '✅' if result['significant'] else '❌'
+                            't-statistic': f"{resultado['estadistico_t']:.4f}",
+                            'p-value': f"{resultado['valor_p']:.4f}",
+                            'Significativo': '✅' if resultado['significativo'] else '❌'
                         }
-                        for comp, result in traditional_results['t_tests'].items()
+                        for comp, resultado in resultados_tradicionales['pruebas_t'].items()
                     ])
-                    st.dataframe(t_test_df, use_container_width=True)
+                    st.dataframe(df_t_test, use_container_width=True)
                     
                     # Interpretación
                     st.caption("**Interpretación:** p < 0.05 indica diferencia significativa en precisión")
@@ -1476,18 +1389,18 @@ def main():
                 st.markdown("##### 📊 Prueba Z de Proporciones")
                 st.caption("Comparación de tasas de acierto (n=1000 imágenes simuladas)")
                 
-                if 'z_tests' in traditional_results:
-                    z_test_df = pd.DataFrame([
+                if 'pruebas_z' in resultados_tradicionales:
+                    df_z_test = pd.DataFrame([
                         {
                             'Comparación': comp,
-                            'z-statistic': f"{result['z_statistic']:.4f}",
-                            'p-value': f"{result['p_value']:.4f}",
-                            'Acc. Modelo 1': f"{result['prop1']:.3f}",
-                            'Acc. Modelo 2': f"{result['prop2']:.3f}"
+                            'z-statistic': f"{resultado['estadistico_z']:.4f}",
+                            'p-value': f"{resultado['valor_p']:.4f}",
+                            'Acc. Modelo 1': f"{resultado['prop1']:.3f}",
+                            'Acc. Modelo 2': f"{resultado['prop2']:.3f}"
                         }
-                        for comp, result in traditional_results['z_tests'].items()
+                        for comp, resultado in resultados_tradicionales['pruebas_z'].items()
                     ])
-                    st.dataframe(z_test_df, use_container_width=True)
+                    st.dataframe(df_z_test, use_container_width=True)
                     
                     st.caption("**Interpretación:** Compara proporciones de aciertos entre modelos")
             
@@ -1495,37 +1408,37 @@ def main():
             st.markdown("---")
             st.markdown("#### 🔬 Visualizaciones Estadísticas Avanzadas")
             
-            plots = create_statistical_plots(st.session_state['predictions'])
+            graficos = crear_graficos_estadisticos(st.session_state['predicciones'])
             
             col5, col6 = st.columns(2)
             
             with col5:
-                st.image(plots['confidence_comparison'], caption="Comparación de Confianza")
+                st.image(graficos['comparacion_confianza'], caption="Comparación de Confianza")
             
             with col6:
-                st.image(plots['probability_heatmap'], caption="Matriz de Probabilidades")
+                st.image(graficos['mapa_calor_probabilidad'], caption="Matriz de Probabilidades")
             
             # Test estadísticos adicionales
             st.markdown("---")
             st.markdown("#### 📋 Análisis de Incertidumbre")
             
             # Análisis de varianza de probabilidades
-            all_probs = []
-            for model in st.session_state['predictions']:
-                all_probs.append(st.session_state['predictions'][model]['probabilities'])
+            todas_las_probabilidades = []
+            for modelo in st.session_state['predicciones']:
+                todas_las_probabilidades.append(st.session_state['predicciones'][modelo]['probabilidades'])
             
             # Calcular entropía para cada modelo (medida de incertidumbre)
-            entropy_data = []
-            for model, probs in zip(st.session_state['predictions'].keys(), all_probs):
-                entropy = -np.sum(probs * np.log2(probs + 1e-10))
-                entropy_data.append({
-                    'Modelo': model,
-                    'Entropía': entropy,
-                    'Interpretación': 'Baja incertidumbre' if entropy < 1 else 'Alta incertidumbre'
+            datos_entropia = []
+            for modelo, lista_probabilidades in zip(st.session_state['predicciones'].keys(), todas_las_probabilidades):
+                entropia = -np.sum(lista_probabilidades * np.log2(lista_probabilidades + 1e-10))
+                datos_entropia.append({
+                    'Modelo': modelo,
+                    'Entropía': entropia,
+                    'Interpretación': 'Baja incertidumbre' if entropia < 1 else 'Alta incertidumbre'
                 })
             
-            entropy_df = pd.DataFrame(entropy_data)
-            st.dataframe(entropy_df, use_container_width=True)
+            df_entropia = pd.DataFrame(datos_entropia)
+            st.dataframe(df_entropia, use_container_width=True)
             
             # Matriz de confusión simulada
             st.markdown("---")
@@ -1536,23 +1449,23 @@ def main():
             
             # Simular una matriz de confusión para el mejor modelo
             np.random.seed(42)
-            n_classes = len(DISEASE_CLASSES)
-            cm = np.zeros((n_classes, n_classes), dtype=int)
+            num_clases = len(CLASES_ENFERMEDADES)
+            mc = np.zeros((num_clases, num_clases), dtype=int)
             
             # Llenar diagonal principal con valores altos (aciertos)
-            for i in range(n_classes):
-                cm[i, i] = np.random.randint(85, 98)
+            for i in range(num_clases):
+                mc[i, i] = np.random.randint(85, 98)
                 # Distribuir algunos errores
-                for j in range(n_classes):
+                for j in range(num_clases):
                     if i != j:
-                        cm[i, j] = np.random.randint(0, 5)
+                        mc[i, j] = np.random.randint(0, 5)
             
-            sns.heatmap(cm, 
+            sns.heatmap(mc, 
                         annot=True, 
                         fmt='d', 
                         cmap='Blues',
-                        xticklabels=[DISEASE_INFO[d]['es'][:10] for d in DISEASE_CLASSES],
-                        yticklabels=[DISEASE_INFO[d]['es'][:10] for d in DISEASE_CLASSES],
+                        xticklabels=[INFO_ENFERMEDADES[d]['es'][:10] for d in CLASES_ENFERMEDADES],
+                        yticklabels=[INFO_ENFERMEDADES[d]['es'][:10] for d in CLASES_ENFERMEDADES],
                         ax=ax)
             ax.set_title('Matriz de Confusión - EfficientNetB7 (Ejemplo)', fontsize=14)
             ax.set_xlabel('Predicción')
@@ -1572,22 +1485,22 @@ def main():
             with col_pdf2:
                 if st.button("🎯 Generar Reporte PDF", type="primary", use_container_width=True):
                     with st.spinner("Generando reporte PDF..."):
-                        # Obtener la imagen si existe - CORREGIDO
-                        img_bytes = st.session_state.get('uploaded_image_bytes', None)
-                        img_buffer = BytesIO(img_bytes) if img_bytes else None
+                        # Obtener la imagen si existe
+                        bytes_imagen = st.session_state.get('uploaded_image_bytes', None)
+                        buffer_imagen = BytesIO(bytes_imagen) if bytes_imagen else None
                         
                         # Generar PDF con pruebas tradicionales incluidas
-                        pdf_buffer = generate_pdf_report(
-                            st.session_state['predictions'],
-                            img_buffer,
-                            statistical_results,
-                            traditional_results  # Agregamos las pruebas tradicionales
+                        buffer_pdf = generar_reporte_pdf(
+                            st.session_state['predicciones'],
+                            buffer_imagen,
+                            resultados_estadisticos,
+                            resultados_tradicionales  # Agregamos las pruebas tradicionales
                         )
                         
                         # Descargar PDF
                         st.download_button(
                             label="📥 Descargar Reporte PDF",
-                            data=pdf_buffer,
+                            data=buffer_pdf,
                             file_name=f"reporte_completo_tomate_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                             mime="application/pdf",
                             use_container_width=True
@@ -1599,7 +1512,7 @@ def main():
             st.markdown("---")
             st.markdown("### 💡 Interpretación de Resultados")
             
-            interpretation = """
+            interpretacion = """
             **Guía de Interpretación:**
             
             **Pruebas Modernas:**
@@ -1617,13 +1530,13 @@ def main():
             **Recomendaciones basadas en el análisis:**
             """
             
-            st.markdown(interpretation)
+            st.markdown(interpretacion)
             
             # Recomendaciones específicas basadas en el consenso
-            consensus_disease = statistical_results['consensus']
-            if DISEASE_INFO[consensus_disease]['severity'] == 'Alta':
+            enfermedad_consenso = resultados_estadisticos['consenso']
+            if INFO_ENFERMEDADES[enfermedad_consenso]['severidad'] == 'Alta':
                 st.error("⚠️ Se detectó una enfermedad de severidad ALTA. Acción inmediata recomendada.")
-            elif DISEASE_INFO[consensus_disease]['severity'] == 'Media':
+            elif INFO_ENFERMEDADES[enfermedad_consenso]['severidad'] == 'Media':
                 st.warning("⚡ Se detectó una enfermedad de severidad MEDIA. Monitoreo cercano recomendado.")
             else:
                 st.success("✅ Riesgo bajo o planta saludable. Mantener prácticas preventivas.")
@@ -1635,66 +1548,66 @@ def main():
         st.header("🔬 Evaluación de Modelos con un Conjunto de Datos Real")
         st.info("Carga imágenes de prueba para cada clase para obtener métricas de rendimiento reales y comparar los modelos de forma robusta.")
 
-        uploaded_files_by_class = {}
+        archivos_cargados_por_clase = {}
         st.markdown("#### Carga de Imágenes de Prueba")
 
         # Usar expanders para organizar la carga de archivos
-        for folder_name, class_name in FOLDER_TO_CLASS_MAP.items():
-            with st.expander(f"📁 {DISEASE_INFO[class_name]['es']}"):
-                uploaded_files_by_class[class_name] = st.file_uploader(
-                    f"Cargar imágenes para la clase '{DISEASE_INFO[class_name]['es']}'",
+        for nombre_carpeta, nombre_clase in MAPA_CARPETA_A_CLASE.items():
+            with st.expander(f"📁 {INFO_ENFERMEDADES[nombre_clase]['es']}"):
+                archivos_cargados_por_clase[nombre_clase] = st.file_uploader(
+                    f"Cargar imágenes para la clase '{INFO_ENFERMEDADES[nombre_clase]['es']}'",
                     type=['jpg', 'jpeg', 'png'],
                     accept_multiple_files=True,
-                    key=f"upload_{class_name}" # Clave única para cada uploader
+                    key=f"upload_{nombre_clase}" # Clave única para cada uploader
                 )
         
         if st.button("🚀 Iniciar Evaluación de Modelos", type="primary", use_container_width=True):
             with st.spinner("Realizando evaluación... Esto puede tardar varios minutos."):
-                eval_results = perform_real_evaluation(uploaded_files_by_class, models_dict)
-                if eval_results:
-                    st.session_state.eval_results = eval_results
+                resultados_evaluacion = realizar_evaluacion_real(archivos_cargados_por_clase, diccionario_modelos)
+                if resultados_evaluacion:
+                    st.session_state.resultados_evaluacion = resultados_evaluacion
                     st.success("¡Evaluación completada con éxito!")
                 else:
                     st.error("La evaluación no pudo completarse. Asegúrate de cargar imágenes.")
 
-        if 'eval_results' in st.session_state:
+        if 'resultados_evaluacion' in st.session_state:
             st.markdown("---")
             st.header("📊 Resultados de la Evaluación")
             
-            results = st.session_state.eval_results
+            resultados = st.session_state.resultados_evaluacion
             
             # Tabla de resumen
             st.markdown("#### Resumen de Rendimiento General")
-            metrics_data = []
-            for model_name, res in results.items():
-                if isinstance(res, dict) and 'accuracy' in res:
-                    metrics_data.append({
-                        'Modelo': model_name, 
-                        'Precisión (Accuracy)': f"{res['accuracy']:.2%}", 
+            datos_metricas = []
+            for nombre_modelo, res in resultados.items():
+                if isinstance(res, dict) and 'precision' in res:
+                    datos_metricas.append({
+                        'Modelo': nombre_modelo, 
+                        'Precisión (Accuracy)': f"{res['precision']:.2%}", 
                         'Coeficiente de Matthews (MCC)': f"{res['mcc']:.4f}"
                     })
-            st.dataframe(pd.DataFrame(metrics_data), use_container_width=True)
+            st.dataframe(pd.DataFrame(datos_metricas), use_container_width=True)
 
-            # McNemar's Test
+            # Prueba de McNemar
             st.markdown("#### Prueba de McNemar (Comparación de Errores)")
             st.caption("Esta prueba determina si los modelos cometen tipos de errores diferentes. Un p-value < 0.05 sugiere que la diferencia en los errores es estadísticamente significativa.")
-            mcnemar_df = pd.DataFrame([
-                {'Comparación': comp, 'Chi-cuadrado': f"{res['chi2']:.4f}", 'P-Value': f"{res['p_value']:.4f}", 'Diferencia Significativa': "✅ Sí" if res['p_value'] < 0.05 else "❌ No"}
-                for comp, res in results['mcnemar_tests'].items()
+            df_mcnemar = pd.DataFrame([
+                {'Comparación': comp, 'Chi-cuadrado': f"{res['chi2']:.4f}", 'P-Value': f"{res['valor_p']:.4f}", 'Diferencia Significativa': "✅ Sí" if res['valor_p'] < 0.05 else "❌ No"}
+                for comp, res in resultados['pruebas_mcnemar'].items()
             ])
-            st.dataframe(mcnemar_df, use_container_width=True)
+            st.dataframe(df_mcnemar, use_container_width=True)
             
             # Matrices de Confusión
             st.markdown("#### Matrices de Confusión Detalladas")
-            class_labels = [DISEASE_INFO[c]['es'] for c in DISEASE_CLASSES]
+            etiquetas_clases = [INFO_ENFERMEDADES[c]['es'] for c in CLASES_ENFERMEDADES]
             
-            for model_name, res in results.items():
-                if isinstance(res, dict) and 'confusion_matrix' in res:
-                    with st.expander(f"Ver Matriz de Confusión para {model_name}"):
+            for nombre_modelo, res in resultados.items():
+                if isinstance(res, dict) and 'matriz_confusion' in res:
+                    with st.expander(f"Ver Matriz de Confusión para {nombre_modelo}"):
                         fig, ax = plt.subplots(figsize=(10, 8))
-                        sns.heatmap(res['confusion_matrix'], annot=True, fmt='d', cmap='Blues',
-                                    xticklabels=class_labels, yticklabels=class_labels, ax=ax)
-                        ax.set_title(f'Matriz de Confusión - {model_name}', fontsize=16)
+                        sns.heatmap(res['matriz_confusion'], annot=True, fmt='d', cmap='Blues',
+                                    xticklabels=etiquetas_clases, yticklabels=etiquetas_clases, ax=ax)
+                        ax.set_title(f'Matriz de Confusión - {nombre_modelo}', fontsize=16)
                         ax.set_xlabel('Predicción', fontsize=12)
                         ax.set_ylabel('Clase Real', fontsize=12)
                         plt.xticks(rotation=45, ha='right')
@@ -1706,22 +1619,22 @@ def main():
             st.markdown("### 📄 Generar Reporte de Evaluación")
             if st.button("📥 Descargar Reporte de Evaluación en PDF", use_container_width=True):
                 with st.spinner("Generando PDF..."):
-                    pdf_buffer = generate_evaluation_pdf_report(st.session_state.eval_results)
+                    buffer_pdf = generar_reporte_pdf_evaluacion(st.session_state.resultados_evaluacion)
                     st.download_button(
                         label="Haga clic para descargar el PDF",
-                        data=pdf_buffer,
+                        data=buffer_pdf,
                         file_name=f"reporte_evaluacion_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
                         mime="application/pdf")
 
     # Footer con información adicional
     st.markdown("---")
-    st.markdown("""
+    st.markdown(f"""
     <div style='text-align: center; color: gray;'>
         <p>💡 <strong>Nota:</strong> Este sistema es una herramienta de apoyo. 
         Para un diagnóstico definitivo, consulte con un experto agrónomo.</p>
-        <p>Desarrollado con ❤️ usando PyTorch y Streamlit | {}</p>
+        <p>Desarrollado con ❤️ usando PyTorch y Streamlit | {datetime.now().strftime("%Y")}</p>
     </div>
-    """.format(datetime.now().strftime("%Y")), unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
-    main()
+    principal()
